@@ -1,29 +1,13 @@
+# Thomas Goldman 2023
+# DOLPHINN
 
 import deepxde as dde
 from deepxde.backend import tf
 
-
-class Dynamics:
-
-    def __init__(self,
-                m,
-                mu,
-                length_scale,
-                time_scale):
-
-        self.m = m
-        self.mu = mu
-        self.time_scale = time_scale
-        self.length_scale = length_scale
-        self.dynamics_identifier = self.__class__.__name__
-
-    def call_loss(self, x, y):
-         raise NotImplementedError(
-            "call_loss methods to be implemented"
-        )
+from .function import Function
 
 
-class TwoBodyProblemNoneDimensional(Dynamics):
+class TwoBodyProblemNoneDimensional(Function):
     '''
     Equations of motion for the two body problem with cartesian coordinates,
     in non-dimensional units. Time has been scaled with time_scale and position
@@ -40,16 +24,12 @@ class TwoBodyProblemNoneDimensional(Dynamics):
         loss (list): Residial of the individual equations of motion
     '''
 
-    def __init__(self,
-                 m,
-                 mu,
-                 length_scale,
-                 time_scale):
+    def __init__(self, data):
 
-        super().__init__(m, mu, length_scale, time_scale)
+        self.control = False
+        super().__init__(data)
 
-    def call_loss(self, x, y):
-
+    def call(self, x, y):
 
         # Unpack tensors
         x_tens  = y[:, 0:1]
@@ -76,7 +56,9 @@ class TwoBodyProblemNoneDimensional(Dynamics):
             dvy_dt - RHS_vy
             ]
 
-class TwoBodyProblemNonDimensionalControl(Dynamics):
+
+
+class TwoBodyProblemNonDimensionalControl(Function):
     '''
     Equations of motion for the two body problem in non-dimensional units,
     including a control term. Time has been scaled with time_scale and position
@@ -93,15 +75,12 @@ class TwoBodyProblemNonDimensionalControl(Dynamics):
         loss (list): Residial of the individual equations of motion
     '''
 
-    def __init__(self,
-                m,
-                mu,
-                length_scale,
-                time_scale):
+    def __init__(self, data):
 
-        super().__init__(m, mu, length_scale, time_scale)
+        self.control = False
+        super().__init__(data)
 
-    def call_loss(self, x, y):
+    def call(self, x, y):
 
         # Unpack tensors
         x_tens  = y[:, 0:1]
@@ -122,8 +101,8 @@ class TwoBodyProblemNonDimensionalControl(Dynamics):
 
         RHS_x = vx_tens
         RHS_y  = vy_tens
-        RHS_vx  = - (self.mu * self.time_scale**2 / self.length_scale**3) * x_tens * r**(-3) + self.time_scale**2 / (self.length_scale*m) * ux_tens
-        RHS_vy  = - (self.mu * self.time_scale**2 / self.length_scale**3) * y_tens * r**(-3) + self.time_scale**2 / (self.length_scale*m) * uy_tens
+        RHS_vx  = - (self.mu * self.time_scale**2 / self.length_scale**3) * x_tens * r**(-3) + self.time_scale**2 / (self.length_scale*self.call_lossm) * ux_tens
+        RHS_vy  = - (self.mu * self.time_scale**2 / self.length_scale**3) * y_tens * r**(-3) + self.time_scale**2 / (self.length_scale*self.m) * uy_tens
 
         return [
             dx_dt - RHS_x,
@@ -134,32 +113,29 @@ class TwoBodyProblemNonDimensionalControl(Dynamics):
 
 
 
-class TwoBodyProblemRadialNonDimensional:
+class TwoBodyProblemRadialNonDimensional(Function):
+    '''
+    Equations of motion for the two body problem with radial coordinates,
+    in non-dimensional units. Time has been scaled with time_scale and position
+    with length_scale. Function is used by DeepXDE to construct the Dynamics
+    loss term of a PINN.
 
-    def __init__(self,
-                m,
-                mu,
-                length_scale,
-                time_scale):
+    State entries: [r, v_r, v_{\theta}]
 
-        super().__init__(m, mu, length_scale, time_scale)
+    Args:
+        x (tf.tensor): Network input, time
+        y (tf.tensor): Network prediction, position, velocity
 
-    def call_loss(self, time, y):
-        '''
-        Equations of motion for the two body problem with radial coordinates,
-        in non-dimensional units. Time has been scaled with time_scale and position
-        with length_scale. Function is used by DeepXDE to construct the Dynamics
-        loss term of a PINN.
+    Returns:
+        loss (list): Residial of the individual equations of motion
+    '''
 
-        State entries: [r, v_r, v_{\theta}]
+    def __init__(self, data):
 
-        Args:
-            x (tf.tensor): Network input, time
-            y (tf.tensor): Network prediction, position, velocity
+        self.control = False
+        super().__init__(data)
 
-        Returns:
-            loss (list): Residial of the individual equations of motion
-        '''
+    def call(self, time, y):
 
         # Unpack tensors
         x1  = y[:, 0:1]
@@ -181,32 +157,32 @@ class TwoBodyProblemRadialNonDimensional:
             dx3_dt - RHS_x3,
             ]
 
-class TwoBodyProblemRadialNonDimensionalControl:
 
-    def __init__(self,
-                m,
-                mu,
-                length_scale,
-                time_scale):
 
-        super().__init__(m, mu, length_scale, time_scale)
+class TwoBodyProblemRadialNonDimensionalControl(Function):
+    '''
+    Equations of motion for the two body problem in non-dimensional units,
+    including a control term. Time has been scaled with time_scale and position
+    with length_scale. Function is used by DeepXDE to construct the Dynamics
+    loss term of a PINN
 
-    def call_loss(self, time, y):
-        '''
-        Equations of motion for the two body problem in non-dimensional units,
-        including a control term. Time has been scaled with time_scale and position
-        with length_scale. Function is used by DeepXDE to construct the Dynamics
-        loss term of a PINN
+    State entries: [r, v_r, v_{\theta}, u_r, u_{\theta}]
 
-        State entries: [r, v_r, v_{\theta}, u_r, u_{\theta}]
+    Args:
+        x (tf.tensor): Network input, time
+        y (tf.tensor): Network prediction, position, velocity
 
-        Args:
-            x (tf.tensor): Network input, time
-            y (tf.tensor): Network prediction, position, velocity
+    Returns:
+        loss (list): Residial of the individual equations of motion
+    '''
 
-        Returns:
-            loss (list): Residial of the individual equations of motion
-        '''
+    def __init__(self, data):
+
+        self.control = False
+        super().__init__(data)
+
+    def call(self, time, y):
+
 
         # Unpack tensors
         x1 = y[:, 0:1]
@@ -222,8 +198,8 @@ class TwoBodyProblemRadialNonDimensionalControl:
         dx3_dt = dde.grad.jacobian(y, time, i=2)
 
         RHS_x1  = x2
-        RHS_x2  = x3**2/x1 - (self.mu * self.time_scale**2 / self.length_scale**3) * x1**(-2) + (self.time_scale**2/self.length_scale) * ur / m
-        RHS_x3  = - (x2*x3)/x1 + (self.time_scale**2/self.length_scale) * ut / m
+        RHS_x2  = x3**2/x1 - (self.mu * self.time_scale**2 / self.length_scale**3) * x1**(-2) + (self.time_scale**2/self.length_scale) * ur / self.m
+        RHS_x3  = - (x2*x3)/x1 + (self.time_scale**2/self.length_scale) * ut / self.m
 
         return [
             dx1_dt - RHS_x1,
