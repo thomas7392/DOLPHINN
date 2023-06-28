@@ -13,3 +13,5 @@ from .objectives import OptimalFuel
 
 from .training import Scheduler
 
+from .utils import print_config
+
