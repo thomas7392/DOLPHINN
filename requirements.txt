@@ -1,0 +1,8 @@
+git+https://github.com/thomas7392/deepxde
+matplotlib
+numpy
+scipy
+tensorflow
+tudatpy
+
+
