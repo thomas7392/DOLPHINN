@@ -19,7 +19,7 @@ class InitialStateLayer(Function):
     def call(self, t, y):
         '''
         Mulitply the networks output with a time dependent function
-        which vanshises at t=0. Add the initial state.
+          which vanshises at t=0. Add the initial state.
 
         Arguments:
             t (tf.Tensor): network input (time)
