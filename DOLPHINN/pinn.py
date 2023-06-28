@@ -10,7 +10,6 @@ import json
 # DeepXDE Imports
 import deepxde as dde
 from deepxde.backend import tf
-from deepxde import config, optimizers
 
 # DOLPHINN imports
 from . import dynamics
@@ -18,6 +17,8 @@ from . import output_layers
 from . import objectives
 from . import input_layers
 from . import training
+from . import utils
+from . import coordinate_transformations
 
 from .function import Function
 from .ObjectivePINN import ObjectivePINN
@@ -37,7 +38,8 @@ class DOLPHINN:
                  train = None,
                  metrics = [],
                  callbacks = [],
-                 seed = None):
+                 seed = None,
+                 solution = None):
         '''
         Initalizes the class
 
@@ -63,20 +65,20 @@ class DOLPHINN:
             verbose (bool):  Printing information toggle
             train (list):    Immidiatelly train upon creation of instance. Requires config-like dictionary
                              input
-
         '''
 
+        libraries = [dynamics, input_layers, output_layers, objectives]
         fnames = ["dynamics", "input_transform", "output_transform", "objective"]
         functions = [dynamics_name, input_transform, output_transform, objective]
 
         # Create attributes of the functions that require data to work
-        for fname, function in zip(fnames, functions):
+        for fname, function, library in zip(fnames, functions, libraries):
 
             # Check if not None
             if function:
 
                 if isinstance(function, str):
-                    class_object = getattr(dynamics, dynamics_name)
+                    class_object = getattr(library, function)
                     instance = class_object(data)
                 elif issubclass(function, Function):
                     instance = function(data)
@@ -92,25 +94,70 @@ class DOLPHINN:
         self.base_verbose = verbose
         self.metrics = metrics
         self.callbacks = callbacks
+        self.old_solution = True if solution else False
 
         self._create_model(seed = seed, verbose = self.base_verbose)
         self._create_config()
 
-        # Train network upon initialisation
-        if train:
-            for procedure in train:
+        # Upload solution to the DOLPHINN class
+        if solution:
+            self._upload_solution(solution)
+            self.old_solution = True
 
+        # Train network upon initialisation
+        elif train:
+
+            train_list = []
+
+            # Create training instances
+            for procedure in train:
                 algorithm = getattr(training, procedure['name'])
                 algorithm_parameters = procedure.copy()
                 del algorithm_parameters['name']
-
                 algorithm_instance = algorithm(**algorithm_parameters)
-                self.train(algorithm_instance)
+                train_list.append(algorithm_instance)
 
+            if self.base_verbose:
+                print("[DOLPHINN] Starting training procedure encountered in config file")
+
+            # Train the algorithms
+            self.train(train_list)
+
+    @classmethod
+    def from_solution(cls,
+                      path,
+                      verbose = True):
+        '''
+        Upload a folder containing the solution of a previously trained DOLPHINN
+        via the following files:
+            path/config
+            path/test.dat
+            path/loss.dat
+            path/<...>.ckpt.data-00000-of-00001
+        '''
+
+        config_path = path + "config"
+        test_path = path + "test.dat"
+        loss_path = path + "loss.dat"
+
+        files = os.listdir("../Data/test/")
+        for file in files:
+            if file[-5:] == "index":
+                weigths_path = path + file.split(".")[0] + ".ckpt"
+
+        if verbose:
+            print(f"[DOLPHINN] Initializing the DOLPHINN from old solution at: {path}")
+
+        return cls.from_config(config_path,
+                        solution = [test_path, loss_path, weigths_path],
+                        upload_seed=True,
+                        train = False,
+                        verbose = verbose)
 
     @classmethod
     def from_config(cls,
                     config,
+                    solution = None,
                     upload_seed = True,
                     train = False,
                     verbose = True):
@@ -118,22 +165,15 @@ class DOLPHINN:
         Initalizes the class from a configuration file
         '''
 
-        # If string, treat as path and
-        if isinstance(config, str):
-            # Load the JSON file back into a dictionary
+        config = utils.path_or_instance(config, dict)
 
-            if os.path.exists(config):
-                with open(config, 'r') as file:
-                    config_dict = json.load(file)
-            else:
-                raise ValueError(f"{config}: invalid path")
+        # Prepare to upload a solution
+        if solution:
+            best_y = utils.path_or_instance(solution[0], np.ndarray)
+            losshistory = utils.path_or_instance(solution[1], np.ndarray)
+            weigths_path = solution[2]
+            solution = [best_y, losshistory, weigths_path]
 
-            config = config_dict
-
-        # Check if dictionary
-        elif not isinstance(config, dict):
-            return ValueError(f"{config} invalid config argument: choose a path to a config.JSON file\
-                              or directly provide the dictionary.")
 
         # Retrieve function and training keys
         function_keys = ['dynamics', 'output_transform', 'input_transform', 'objective']
@@ -144,7 +184,7 @@ class DOLPHINN:
             if config[function] == "NoneType":
                 config[function] = None
 
-        # Check if
+        # Check if functions exist
         if config["dynamics"] and not hasattr(dynamics, config["dynamics"]):
             raise ValueError(f"Dynamnics function {config[function]} is not\
                              implemented in DOLPHINN.dynamics")
@@ -166,34 +206,45 @@ class DOLPHINN:
         for key in ['initial_state', 'final_state']:
             data[key] = np.array(data[key])
 
+        # Add old solutions training procedure to data file in case of solutinon
+        if solution:
+            for key in training_keys:
+                data[key] = config[key]
+
         # Decide if to train with procedure found in config file
         training = None
         if train:
             training = [config[key] for key in training_keys]
             if len(training) == 0:
-                print("A training was requested, but config contains no training procedures")
+                print("[DOLPHINN] A training was requested, but config contains no training procedures")
 
         # Decide if to give it the seed from the config solution.
         if upload_seed:
             if "seed" not in list(config.keys()):
                 raise ValueError("The config file contains no seed to upload")
+            elif upload_seed and solution:
+                if verbose:
+                    print("[DOLPHINN][Warning] Upload of seed requested: initialisation will be overwritten by the solution")
             seed = config['seed']
         else:
             seed = None
 
+        if train and solution:
+            raise ValueError("Train is requested and solution is provided: choose one")
+
         if verbose:
-            print(f"Config file succesfully parsed. Initializing DOLPHINN with:")
-            print()
-            for key, value in config.items():
-                print(f"{key}:    {value}")
+            print(f"[DOLPHINN] Config file succesfully parsed. Initializing DOLPHINN with:")
+            utils.print_config(config)
 
         return cls(data,
                    config['dynamics'],
-                   output_transform=config['output_transform'],
+                   output_transform = config['output_transform'],
                    input_transform = config['input_transform'],
                    objective = config['objective'],
                    train = training,
-                   seed = seed)
+                   seed = seed,
+                   solution = solution,
+                   verbose = verbose)
 
     def _create_model(self, seed=None, verbose = True):
         '''
@@ -206,11 +257,16 @@ class DOLPHINN:
             seed = int(current_time.strftime("%Y%m%d%H%M%S"))
 
             if verbose:
-                print(f"Using time-dependent random seed: {seed}")
+                print(f"[DOLPHINN] Using time-dependent random seed: {seed}")
+        else:
+            if verbose:
+                print(f"[DOLPHINN] Using user-defined seed: {seed}")
 
         # Store the current seed in the data dictionary, such that it will be
         # known what seed was used for the final solution
         self.data['seed'] = seed
+        if hasattr(self, "config"):
+            self.config['seed'] = seed
 
         # Build the network from the config dictionary
         geom = dde.geometry.TimeDomain(self.data['t0'], self.data['tfinal'])
@@ -241,10 +297,23 @@ class DOLPHINN:
         self.model = ObjectivePINN(data, net)
         self.model.display_progress = verbose
 
-    def train(self, algorithm):
+        if self.old_solution:
+            if self.base_verbose:
+                print("[DOLPHINN]: Compiling the DeepXDE model to be able to use DOLPHINN.model.predict")
+
+            self.model.compile("adam", lr = 1e-8)
+
+    def train(self,
+              algorithm):
         '''
         Perform training
         '''
+
+        assert not self.old_solution, "This is an old uploaded solution, additional \
+                                   training is not possible. Recreate this solution \
+                                   with DOLPHINN.from_config(config, train = True, upload_seed = True) \
+                                   to get (nearly) the same solution. Only difference is the random aspect \
+                                   in the training data sampling"
 
         if not isinstance(algorithm, list):
             algorithm = [algorithm]
@@ -253,13 +322,81 @@ class DOLPHINN:
         for alg in algorithm:
             if not issubclass(type(alg), Function):
                 raise TypeError(f"{type(alg).__name__} is not a valid training algorithm,\
-                                the class should inherrit the DOLPHINN.function.Function class")
+                                the training class should inherrit the\
+                                DOLPHINN.function.Function class")
 
-        # Iterate over training algorithms
+
+        #Iterate over training algorithms
         for alg in algorithm:
+
+            if self.base_verbose:
+                print(f"\n[DOLPHINN] Training with procedure: {alg.name}\n")
             self.train_procedure += 1
             alg.call(self)
             self._update_config(alg)
+
+        # Create states and loss in DOLPHINN class instance
+        self._create_states_and_loss(self.model.train_state.X_test,
+                            self.model.train_state.best_y,
+                            np.array(self.model.losshistory.loss_train),
+                            np.array(self.model.losshistory.loss_test),
+                            np.array(self.model.losshistory.steps))
+
+    def _create_states_and_loss(self,
+                                time,
+                                best_y,
+                                loss_train,
+                                loss_test,
+                                steps):
+        '''
+        Stores the loss history and best test solution in the
+        DOLPHINN instance. Converts states to Non-Dimensional cartesian.
+        '''
+
+        # Relevant results
+        self.loss_train = loss_train
+        self.loss_test = loss_test
+        self.steps = steps
+
+        # Retrieve theta if radial coordinates
+        if self.dynamics.coordinates == "radial":
+            theta = utils.integrate_theta(time[:,0],
+                                          best_y)
+            states = np.concatenate((time, best_y[:,0:1], theta.reshape(-1, 1), best_y[:,1:]), axis = 1)
+        else:
+            states = np.concatenate((time, best_y), axis = 1)
+
+        # Create state attribute
+        self.states = {self.dynamics.coordinates: states}
+
+        # Potentially convert states to Non-Dimensional Cartesian states
+        if self.dynamics.coordinates != "NDcartesian":
+            transformation = getattr(coordinate_transformations,
+                                      f"{self.dynamics.coordinates}_to_NDcartesian")
+            self.states["NDcartesian"] = transformation(self.states[self.dynamics.coordinates],
+                                                        self.config)
+
+    def _upload_solution(self, solution):
+
+        best_y_arr = solution[0]
+        losshistory_arr = solution[1]
+        weigths_path = solution[2]
+
+        time = best_y_arr[:,0:1]
+        best_y = best_y_arr[:,1:]
+
+        loss_entries = self.dynamics.loss_entries + int(bool(self.objective))
+        loss_train = losshistory_arr[:,1:1+loss_entries]
+        loss_test = losshistory_arr[:,1+loss_entries:1+2*loss_entries]
+        steps = losshistory_arr[:,0]
+
+        self._create_states_and_loss(time,
+                                    best_y,
+                                    loss_train,
+                                    loss_test,
+                                    steps)
+
+        self.restore(weigths_path)
 
     def store(self, path, overwrite = False):
         '''
@@ -286,7 +423,7 @@ class DOLPHINN:
         with open(path + "config", 'w') as file:
             json.dump(self.config, file)
 
-        print(f"Saving config file to {path}config")
+        print(f"[DOLPHINN] Saving config file to {path}config")
 
     def restore(self, path):
         '''
@@ -295,7 +432,7 @@ class DOLPHINN:
         self.model.restore(path)
 
         if self.base_verbose:
-            print(f"Restored weights at {path}")
+            print(f"[DOLPHINN] Restored weights at {path}")
 
 
     def _update_config(self, algorithm):
@@ -324,6 +461,19 @@ class DOLPHINN:
         # Transform np.arrays to lists for JSON
         for key in ['initial_state', 'final_state']:
             self.config[key] = list(self.config[key])
+
+
+    def verify(self):
+        '''
+        Perform a verification of a trained network by integrating the dynamics,
+        initial state and control profile for the same time span using a
+        traditional numerical integrator
+        '''
+
+        pass
+
+
+
 
 
 
