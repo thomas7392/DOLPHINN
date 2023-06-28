@@ -6,7 +6,6 @@ from deepxde.backend import tf
 
 from .function import Function
 
-
 class TwoBodyProblemNoneDimensional(Function):
     '''
     Equations of motion for the two body problem with cartesian coordinates,
@@ -23,10 +22,13 @@ class TwoBodyProblemNoneDimensional(Function):
     Returns:
         loss (list): Residial of the individual equations of motion
     '''
+    control = False
+    coordinates = 'NDcartesian'
+    entries = 4
+    control_entries = 0
+    loss_entries = 4
 
     def __init__(self, data):
-
-        self.control = False
         super().__init__(data)
 
     def call(self, x, y):
@@ -74,10 +76,13 @@ class TwoBodyProblemNonDimensionalControl(Function):
     Returns:
         loss (list): Residial of the individual equations of motion
     '''
+    control = False
+    entries = 6
+    control_entries = 2
+    loss_entries = 4
+    coordinates = 'NDcartesian'
 
     def __init__(self, data):
-
-        self.control = False
         super().__init__(data)
 
     def call(self, x, y):
@@ -101,8 +106,10 @@ class TwoBodyProblemNonDimensionalControl(Function):
 
         RHS_x = vx_tens
         RHS_y  = vy_tens
-        RHS_vx  = - (self.mu * self.time_scale**2 / self.length_scale**3) * x_tens * r**(-3) + self.time_scale**2 / (self.length_scale*self.call_lossm) * ux_tens
-        RHS_vy  = - (self.mu * self.time_scale**2 / self.length_scale**3) * y_tens * r**(-3) + self.time_scale**2 / (self.length_scale*self.m) * uy_tens
+        RHS_vx  = - (self.mu * self.time_scale**2 / self.length_scale**3) * x_tens * r**(-3) +\
+              self.time_scale**2 / (self.length_scale*self.m) * ux_tens
+        RHS_vy  = - (self.mu * self.time_scale**2 / self.length_scale**3) * y_tens * r**(-3) +\
+              self.time_scale**2 / (self.length_scale*self.m) * uy_tens
 
         return [
             dx_dt - RHS_x,
@@ -129,10 +136,13 @@ class TwoBodyProblemRadialNonDimensional(Function):
     Returns:
         loss (list): Residial of the individual equations of motion
     '''
+    control = False
+    entries = 3
+    control_entries = 0
+    loss_entries = 3
+    coordinates = 'radial'
 
     def __init__(self, data):
-
-        self.control = False
         super().__init__(data)
 
     def call(self, time, y):
@@ -173,16 +183,19 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
         y (tf.tensor): Network prediction, position, velocity
 
     Returns:
-        loss (list): Residial of the individual equations of motion
+        loss (list): Residual of the individual equations of motion
     '''
 
-    def __init__(self, data):
+    control = False
+    entries = 5
+    control_entries = 2
+    loss_entries = 3
+    coordinates = 'radial'
 
-        self.control = False
+    def __init__(self, data):
         super().__init__(data)
 
     def call(self, time, y):
-
 
         # Unpack tensors
         x1 = y[:, 0:1]
@@ -198,7 +211,8 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
         dx3_dt = dde.grad.jacobian(y, time, i=2)
 
         RHS_x1  = x2
-        RHS_x2  = x3**2/x1 - (self.mu * self.time_scale**2 / self.length_scale**3) * x1**(-2) + (self.time_scale**2/self.length_scale) * ur / self.m
+        RHS_x2  = x3**2/x1 - (self.mu * self.time_scale**2 / self.length_scale**3) * x1**(-2) +\
+              (self.time_scale**2/self.length_scale) * ur / self.m
         RHS_x3  = - (x2*x3)/x1 + (self.time_scale**2/self.length_scale) * ut / self.m
 
         return [
