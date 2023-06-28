@@ -19,6 +19,7 @@ from . import input_layers
 from . import training
 from . import utils
 from . import coordinate_transformations
+from . import verification
 
 from .function import Function
 from .ObjectivePINN import ObjectivePINN
@@ -470,7 +471,8 @@ class DOLPHINN:
         traditional numerical integrator
         '''
 
-        pass
+        self.bench = verification.Verification.from_DOLPHINN(self)
+        self.bench.integrate()
 
 
 

@@ -31,7 +31,7 @@ def get_dynamics_info_from_config(config):
     control = class_object.control
     entries = class_object.entries
     control_entries = class_object.control_entries
-    coordinates = class_object.control_entries
+    coordinates = class_object.coordinates
 
     return central_body, control, entries, control_entries, coordinates
 

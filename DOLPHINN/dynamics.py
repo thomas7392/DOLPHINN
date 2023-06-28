@@ -186,7 +186,7 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
         loss (list): Residual of the individual equations of motion
     '''
 
-    control = False
+    control = True
     entries = 5
     control_entries = 2
     loss_entries = 3

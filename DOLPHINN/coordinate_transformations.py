@@ -45,4 +45,4 @@ def NDcartesian_to_cartesian(states, config):
 
 
 def radial_to_cartesian(states, config):
-    return NDcartesian_to_cartesian(radial_to_cartesian(states, config), config)
+    return NDcartesian_to_cartesian(radial_to_NDcartesian(states, config), config)
