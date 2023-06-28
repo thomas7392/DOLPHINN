@@ -48,24 +48,31 @@ class Restarter(Function):
 
 
     def call(self, DOLPHINN):
+
         attempt = 1
-        loss_threshold = 10
         temp_final_test_loss = np.array([np.NAN])
 
-        while np.any(np.isnan(temp_final_test_loss)) or np.sum(temp_final_test_loss) > loss_threshold:
+        # Keep initalizing network untill condition is met
+        while np.any(np.isnan(temp_final_test_loss)) or np.sum(temp_final_test_loss) > self.loss_threshold:
 
             if DOLPHINN.base_verbose:
                 print(f"Initialisation attempt: {attempt}")
 
-            DOLPHINN._create_model(verbose = DOLPHINN.base_verbose)
+            # Initialize new network if not the first time
+            if not attempt==1:
+                DOLPHINN._create_model(verbose = DOLPHINN.base_verbose)
+
+            # Aggresive training
             DOLPHINN.model.compile("adam", lr=self.lr, loss_weights = self.loss_weigths)
             _, _ = DOLPHINN.model.train(iterations=self.iterations)
 
+            # Break if max attempts reached
             if attempt == self.max_attempts:
                 if DOLPHINN.base_verbose:
                     print("Maximum amount of attempts reached, stopping the restarter")
                 break
 
+            # Prepare next attempt
             attempt += 1
             temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
 
