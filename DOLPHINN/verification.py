@@ -58,7 +58,6 @@ spice.load_standard_kernels()
 #         dummy_state_cartesian = self.to_cartesian(dummy_state)[:-self.control_entries]
 
 
-
 class LowThrustGuidance:
     '''
     Contains laws for controlling the thrust
@@ -82,8 +81,6 @@ class LowThrustGuidance:
         self.control_interpolator = CubicSpline(np.array(list(self.control_nodes.keys())),
                                                 np.array(list(self.control_nodes.values())))
 
-    def getAngles(self, time: float):
-        return np.array([0, 0, 0]).reshape(-1, 1)
 
     def getThrustMagnitude(self, time):
         '''
@@ -100,32 +97,27 @@ class LowThrustGuidance:
 
         return magnitude
 
-
-    def getThrustDirection(self, time):
+    def getInertialThrustDirection(self, time):
         '''
-        Thrust direction as a unit vector in the body fixed frame
+        Thrust magnitude depending on time
 
         Args:
             Time (float):  Time
         returns:
-            magnitude (np.array):  Thrust direction in the body frame
+            magnitude (float):  Thrust magnitude
         '''
-
 
         # Get intertial control vector
         inertial_control = self.control_interpolator(time)
         if len(inertial_control) == 2:
             np.append(inertial_control, 0)
-        intertial_control = intertial_control.reshape(-1, 1)
+        inertial_control = inertial_control.reshape(-1, 1)
 
-        # Get intertial to body frame rotation
-        rotation_matrix = self.bodies.get("Vehicle").inertial_to_body_fixed_frame
-
-        # Perform rotation and normalize
-        bodyframe_control = rotation_matrix @ intertial_control
-        direction = 1/(np.linalg.norm(bodyframe_control)) * bodyframe_control
+        # Normalize vector (unit vector)
+        direction = 1/(np.linalg.norm(inertial_control)) * inertial_control
 
         return  direction
+
 
 class Verification:
     '''
@@ -137,7 +129,7 @@ class Verification:
                  t0,
                  tfinal,
                  initial_state,
-                 isp,
+                 isp=None,
                  central_body = "Sun",
                  control_nodes = None,
                  dolphinn_control_law = None,
@@ -155,6 +147,7 @@ class Verification:
         self.control_nodes = control_nodes
         self.isp = isp
         self.verbose = verbose
+
 
         if self.verbose:
             print("[DOLPHINN] Setting up the TUDAT simulation")
@@ -178,25 +171,63 @@ class Verification:
 
             if verbose:
                 print("[DOLPHINN] Guidance is internal!")
-            # Create guidance
-            GuidanceModel = LowThrustGuidance(self.control_nodes, self.bodies)
-            thrust_magnitude_function = GuidanceModel.getThrustMagnitude
-            thrust_direction_funtion = GuidanceModel.getThrustDirection
+
+            # Create Thrust Magnitude/Direction guidance
+            self.GuidanceModel = LowThrustGuidance(self.control_nodes, self.bodies)
+            thrust_magnitude_function = self.GuidanceModel.getThrustMagnitude
+            thrust_direction_function = self.GuidanceModel.getInertialThrustDirection
+
+
+            # # =============================================
+            # # ======= Example from recent P&O lunar ascent
+            # # =============================================
+            #
+            # # Create Engine with variable thrust
+            # thrust_magnitude_settings = propagation_setup.thrust.custom_thrust_magnitude_fixed_isp(thrust_magnitude_function,
+            #                                                                                         specific_impulse = self.isp)
+            # environment_setup.add_engine_model("Vehicle",
+            #                                     "MainEngine",
+            #                                     thrust_magnitude_settings,
+            #                                     self.bodies)
+            # # Create rototation model
+            # rotation_model_settings = environment_setup.rotation_model.custom_inertial_direction_based(lambda time : np.array([1,0,0] ),
+            #                                                                                            global_frame_orientation,
+            #                                                                                            "VehicleFixed",
+            #                                                                                            )
+            # environment_setup.add_rotation_model(self.bodies,
+            #                                      "Vehicle",
+            #                                      rotation_model_settings,
+            #                                     )
+            # # Set thrust functions in the acceleration model
+            # vehicle_rotation_model = self.bodies.get_body('Vehicle').rotation_model
+            # vehicle_rotation_model.inertial_body_axis_calculator.inertial_body_axis_direction_function = thrust_direction_function
+
+            # =============================================
+            # ======= My implementation ===================
+            # =============================================
+
+            # Create rototation model: aim body fixed frame at inertial thrust direction
+            rotation_model_settings = environment_setup.rotation_model.custom_inertial_direction_based(thrust_direction_function,
+                                                                                                       global_frame_orientation,
+                                                                                                       "VehicleFixed",
+                                                                                                       )
+            environment_setup.add_rotation_model(self.bodies,
+                                                 "Vehicle",
+                                                 rotation_model_settings,
+                                                )
+
+
+            # Create Engine with variable thrust
             thrust_magnitude_settings = propagation_setup.thrust.custom_thrust_magnitude_fixed_isp(thrust_magnitude_function,
-                                                                                                specific_impulse = self.isp )
+                                                                                                    specific_impulse = self.isp)
 
-            # Create Engine
-            environment_setup.add_variable_direction_engine_model("Vehicle",
-                                                                 "MainEngine",
-                                                                 thrust_magnitude_settings,
-                                                                 self.bodies,
-                                                                 thrust_direction_funtion)
+            # Fix thrust in a constant direction in the body fixed frame
+            environment_setup.add_engine_model("Vehicle",
+                                                "MainEngine",
+                                                thrust_magnitude_settings,
+                                                self.bodies,
+                                                body_fixed_thrust_direction = np.array([-1, 0, 0]).reshape(-1, 1))
 
-
-            aerodynamic_angle_function = GuidanceModel.getAngles
-            rotation_model_settings = environment_setup.rotation_model.aerodynamic_angle_based(
-                         "Sun", global_frame_orientation, "Vehicle_fixed", aerodynamic_angle_function)
-            environment_setup.add_rotation_model(self.bodies, "Vehicle", rotation_model_settings )
 
         #====================
         # Setup Propagation
@@ -204,8 +235,11 @@ class Verification:
 
         bodies_to_propagate = ["Vehicle"]
         central_bodies = [self.central_body]
-        acceleration_settings_on_vehicle = {self.central_body: [propagation_setup.acceleration.point_mass_gravity()],
-                                            "Vehicle": [  propagation_setup.acceleration.thrust_from_engine( 'MainEngine')]}
+        acceleration_settings_on_vehicle = {self.central_body: [propagation_setup.acceleration.point_mass_gravity()]}
+
+        if control_nodes:
+            acceleration_settings_on_vehicle["Vehicle"] = [propagation_setup.acceleration.thrust_from_engine('MainEngine')]
+
         acceleration_settings = {"Vehicle": acceleration_settings_on_vehicle}
         acceleration_models = propagation_setup.create_acceleration_models(
                 self.bodies, acceleration_settings, bodies_to_propagate, central_bodies)
@@ -214,9 +248,10 @@ class Verification:
         # Initial time & Termination
         #============================
 
-        simulation_start_epoch = self.t0 * constants.JULIAN_DAY / (24*60*60)
-        simulation_end_epoch = simulation_start_epoch + self.tfinal * constants.JULIAN_DAY / (24*60*60)
-        termination_settings = propagation_setup.propagator.time_termination(simulation_end_epoch)
+        self.simulation_start_epoch = self.t0 * constants.JULIAN_DAY / (24*60*60)
+        self.simulation_end_epoch = self.simulation_start_epoch + self.tfinal * constants.JULIAN_DAY / (24*60*60)
+        termination_settings = propagation_setup.propagator.time_termination(self.simulation_end_epoch)
+
 
         #============================
         # Integration settings
@@ -228,9 +263,8 @@ class Verification:
         #     coefficient_set = propagation_setup.integrator.RKCoefficientSets.rkf_78,
         #     step_size_control_settings = control_settings)
 
-        fixed_step_size = (simulation_end_epoch - simulation_start_epoch)/2000
-        fixed_step_size = 5000
-        integrator_settings = propagation_setup.integrator.runge_kutta_4(fixed_step_size)
+        self.fixed_step_size = 5000
+        integrator_settings = propagation_setup.integrator.runge_kutta_4(self.fixed_step_size)
 
         # Andd its ready to go!
         self.propagator_settings = propagation_setup.propagator.translational(
@@ -238,7 +272,7 @@ class Verification:
             acceleration_models,
             bodies_to_propagate,
             self.initial_state,
-            simulation_start_epoch,
+            self.simulation_start_epoch,
             integrator_settings,
             termination_settings
         )
@@ -247,6 +281,11 @@ class Verification:
 
         if self.verbose:
             print("[DOLPHINN] Start Integrating")
+            print(f"{'   Start epoch'.ljust(30)}{self.simulation_start_epoch}")
+            print(f"{'   End epoch'.ljust(30)}{self.simulation_end_epoch}")
+            print(f"{'   Fixed step size'.ljust(30)}{self.fixed_step_size}")
+            print(f"{'   Initial state'.ljust(30)}{self.initial_state.reshape(1, -1)[0]}")
+            print()
 
         start = time.time()
         # Create simulation object and propagate the dynamics
@@ -255,15 +294,16 @@ class Verification:
         end = time.time()
 
         if self.verbose:
-            print(f"[DOLPHINN] Finished integrating in {end-start} s")
+            print(f"[DOLPHINN] Finished integrating in {np.round(end-start, 5)} s")
 
         self.state_history = self.dynamics_simulator.state_history
-        self.states = result2array(self.state_history)
+        self.states = {"cartesian": result2array(self.state_history)}
 
 
-    def calculate_coordinates(self, coordinates):
+    def calculate_coordinates(self, coordinates, config):
 
-        pass
+        transformation = getattr(coordinate_transformations, f"cartesian_to_{coordinates}")
+        self.states[coordinates] = transformation(self.states['cartesian'], config)
 
     @classmethod
     def from_config_states(cls,
@@ -282,13 +322,21 @@ class Verification:
         else:
             cartesian_states = states["cartesian"]
 
-        # Define information for TUDAT
-        t0                      = cartesian_states[0,0]
-        tfinal                  = cartesian_states[-1,0]
-        control                 = cartesian_states[:,-control_entries:]
-        initial_state           = cartesian_states[0,1:-control_entries].reshape(-1, 1)
+        # Define star and end
+        t0       = cartesian_states[0,0]
+        tfinal   = cartesian_states[-1,0]
 
-        print(t0, tfinal)
+        # Prepare control and initial state
+        if control_entries:
+            control = cartesian_states[:,-control_entries:]
+            control_nodes = {key: value for key, value in zip(cartesian_states[:,0], control)}
+            isp = config['isp']
+            initial_state = cartesian_states[0,1:-control_entries].reshape(-1, 1)
+
+        else:
+            control_nodes = None
+            isp = None
+            initial_state = cartesian_states[0,1:].reshape(-1, 1)
 
         # Make 3D initial state
         if initial_state.shape[0] == 4:
@@ -298,17 +346,11 @@ class Verification:
                                             np.array([[0]])),
                                             axis = 0).reshape(-1, 1)
 
-        # Prepare control nodes
-        if control_entries:
-            control_nodes = {key: value for key, value in zip(cartesian_states[:,0], control)}
-        else:
-            control_nodes = None
-
         return cls(config['m'],
                     t0,
                     tfinal,
                     initial_state,
-                    config['isp'],
+                    isp = isp,
                     central_body = central_body,
                     control_nodes = control_nodes,
                     original_coordinates = coordinates)
