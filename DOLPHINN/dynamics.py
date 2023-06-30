@@ -27,6 +27,8 @@ class TwoBodyProblemNoneDimensional(Function):
     entries = 4
     control_entries = 0
     loss_entries = 4
+    loss_labels = ["x", "y", "v$_x$", "v$_y$"]
+    entry_labels = ["x", "y", "v$_x$", "v$_y$"]
 
     def __init__(self, data):
         super().__init__(data)
@@ -81,6 +83,8 @@ class TwoBodyProblemNonDimensionalControl(Function):
     control_entries = 2
     loss_entries = 4
     coordinates = 'NDcartesian'
+    loss_labels = ["x", "y", "v$_x$", "v$_y$"]
+    entry_labels = ["x", "y", "v$_x$", "v$_y$", "u$_x$", "u$_y$" ]
 
     def __init__(self, data):
         super().__init__(data)
@@ -141,6 +145,8 @@ class TwoBodyProblemRadialNonDimensional(Function):
     control_entries = 0
     loss_entries = 3
     coordinates = 'radial'
+    loss_labels = ["r", "v$_r$", r"v$_{\theta}$"]
+    entry_labels = ["r", "v$_r$", r"v$_{\theta}$"]
 
     def __init__(self, data):
         super().__init__(data)
@@ -191,6 +197,8 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
     control_entries = 2
     loss_entries = 3
     coordinates = 'radial'
+    loss_labels = ["r", "v$_r$", r"v$_{\theta}$"]
+    entry_labels = ["r", "v$_r$", r"v$_{\theta}$", "u$_r$", r"u$_{\theta}$"]
 
     def __init__(self, data):
         super().__init__(data)
