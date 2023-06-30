@@ -1,6 +1,7 @@
 # Thomas Goldman 2023
 # DOLPHINN
 
+import os, sys
 import numpy as np
 import time
 import tensorflow as tf
@@ -17,45 +18,90 @@ from tudatpy.kernel import constants
 from tudatpy.util import result2array
 from tudatpy.kernel.math import interpolators
 
+# Temporaray custom verification
+current_path = os.path.dirname(os.path.abspath(__file__))
+space_hnn_path = os.path.join(current_path, '../../space_hnn')
+sys.path.append(space_hnn_path)
+from TwoBodyProblem import TwoBodyProblem
+
 spice.load_standard_kernels()
 
-# class LowThrustGuidance:
+class VerificationCustom:
+    '''
+    Temporary solution for creating a verification solution by
+    numerical integration.
+    '''
 
-#     def __init__(self, DOLPHINN):
+    def __init__(self, DOLPHINN):
 
-#         self.DOLPHINN = DOLPHINN
-#         self.is_cartesian = self.DOLPHINN.dynamics.coordinates
-#         if not self.is_cartesian:
-#             self.to_cartesian = getattr(get_dynamics_info_from_config, f"{self.DOLPHINN.dynamics.coordinates}_to_cartesian")
-#         self.control_entries = self.DOLPHINN.dynamics.control_entries
-#         self.state_entries = self.DOLPIHNN.dynamics.entries
+        self.verbose = DOLPHINN.base_verbose
 
+        if self.verbose:
+            print("[DOLPHINN] Setting up the custom verification simulation")
 
-#         # Allow to retrieve theta if the NN createa radial coordinates
-#         if self.DOLPHINN.dynamics.coordinates == "radial":
-
-#             dummy_time = np.linspace(self.DOLPHINN.data['t0'], self.DOLPHINN.data['tf'], 1000)
-#             dummy_time_tensor = tf.convert_to_tensor(dummy_time, tf.float32)
-#             y = self.DOLPHINN.model.predict(dummy_time_tensor)
-#             theta = integrate_theta(dummy_time, y)
-
-#             self.theta_interpolater = CubicSpline(dummy_time, theta)
-
-#     def call_dolphinn(self, time):
-
-#         time = time/self.DOLPHINN.data['time_scale']
-#         time_tensor = tf.convert_to_tensor([[time]], tf.float32)
-#         state = self.DOLPHINN.model.predict(time_tensor)
-
-#         if self.DOLPHINN.dynamics.coordinates == "radial":
-#             dummy_state = np.concatenate((np.array([[time]]), state[0, 0:1], self.theta_interpolator(time), state[0,1:]), axis = 1)
+        # Potentially define control profile
+        if DOLPHINN.dynamics.control:
+            if self.verbose:
+                print("[DOLPHINN] Guidance is internal!")
+            control_interpolation = CubicSpline(DOLPHINN.states['NDcartesian'][:,0],
+                                                DOLPHINN.states['NDcartesian'][:,-DOLPHINN.dynamics.control_entries:])
+            control_profile = lambda t: control_interpolation(t)
+        else:
+            control_profile = None
 
 
-#         elif not self.is_cartesian:
-#             dummy_state = np.zeros(self.state_entries)
-#             dummy_state[-self.control_entries:] = control
 
-#         dummy_state_cartesian = self.to_cartesian(dummy_state)[:-self.control_entries]
+        # Integrate benchmrk solution using ND cartesian coordinates
+        self.verification = TwoBodyProblem(DOLPHINN.data['m'],
+                                           DOLPHINN.data['mu'],
+                                           thrust_profile = control_profile,
+                                           t_ref = DOLPHINN.data['time_scale'],
+                                           r_ref = DOLPHINN.data['length_scale'])
+
+        # Set initial state
+        if DOLPHINN.dynamics.control:
+            self.verification.set_initial_condition(DOLPHINN.states['NDcartesian'][0,0],
+                                                    DOLPHINN.states['NDcartesian'][0,1:-DOLPHINN.dynamics.control_entries],
+                                                    "cartesian2",
+                                                    y0_all_coordinates = False)
+        else:
+            self.verification.set_initial_condition(DOLPHINN.states['NDcartesian'][0,0],
+                                        DOLPHINN.states['NDcartesian'][0,1:],
+                                        "cartesian2",
+                                        y0_all_coordinates = False)
+
+        # Integrate using variable step size integrator
+        self.verification.integrate("dop853",
+                                    DOLPHINN.states['NDcartesian'][-1,0],
+                                    "cartesian2",
+                                    rtol = 1e-10,
+                                    atol = 1e-10,
+                                    verbose = False)
+
+        # Create verification solution at time of NN test
+        states_cs = CubicSpline(self.verification.states['cartesian2'][:,0],
+                                self.verification.states['cartesian2'][:,1:])
+        states_at_times = states_cs(DOLPHINN.states['NDcartesian'][:,0])
+
+        # Add the control entries to the states to resamble shape of NN produced states
+        if DOLPHINN.dynamics.control:
+            states_at_times = np.concatenate((DOLPHINN.states['NDcartesian'][:,0:1],
+                                              states_at_times,
+                                              DOLPHINN.states['NDcartesian'][:,-DOLPHINN.dynamics.control_entries:]),
+                                              axis = 1)
+        else:
+            states_at_times = np.concatenate((DOLPHINN.states['NDcartesian'][:,0:1],
+                                            states_at_times),
+                                            axis = 1)
+
+        self.states = {"NDcartesian": states_at_times}
+
+
+    def calculate_coordinates(self, coordinates, config):
+
+        transformation = getattr(coordinate_transformations, f"NDcartesian_to_{coordinates}")
+        self.states[coordinates] = transformation(self.states['NDcartesian'], config)
+
 
 
 class LowThrustGuidance:
@@ -92,10 +138,16 @@ class LowThrustGuidance:
             magnitude (float):  Thrust magnitude
         '''
 
-        inertial_control = self.control_interpolator(time)
-        magnitude = np.linalg.norm(inertial_control)
+        # print(f"Magnitude: called with time {time}")
+        if (time == time):
+            inertial_control = self.control_interpolator(time)
+            magnitude = np.linalg.norm(inertial_control)
+            # print("Magnitude: returning ", magnitude)
+            return magnitude
+        else:
+            # print("Magnitude: returning nan")
+            return np.nan
 
-        return magnitude
 
     def getInertialThrustDirection(self, time):
         '''
@@ -107,16 +159,22 @@ class LowThrustGuidance:
             magnitude (float):  Thrust magnitude
         '''
 
-        # Get intertial control vector
-        inertial_control = self.control_interpolator(time)
-        if len(inertial_control) == 2:
-            np.append(inertial_control, 0)
-        inertial_control = inertial_control.reshape(-1, 1)
+        # print(f"Direction: called with time {time}")
 
-        # Normalize vector (unit vector)
-        direction = 1/(np.linalg.norm(inertial_control)) * inertial_control
+        if (time == time):
+            # Get intertial control vector
+            inertial_control = self.control_interpolator(time)
+            if len(inertial_control) == 2:
+                inertial_control = np.append(inertial_control, 0)
+            inertial_control = inertial_control.reshape(-1, 1)
 
-        return  direction
+            # Normalize vector (unit vector)
+            direction = 1/(np.linalg.norm(inertial_control)) * inertial_control
+            # print("Direction: returning ", direction)
+            return  direction
+        else:
+            # print("Direction: returning nan")
+            return np.nan
 
 
 class Verification:
@@ -134,7 +192,8 @@ class Verification:
                  control_nodes = None,
                  dolphinn_control_law = None,
                  original_coordinates = "cartesian",
-                 verbose = True):
+                 verbose = True,
+                 ref_times = None):
         '''
         Standard initializer
         '''
@@ -147,10 +206,11 @@ class Verification:
         self.control_nodes = control_nodes
         self.isp = isp
         self.verbose = verbose
-
+        self.ref_times = ref_times
 
         if self.verbose:
             print("[DOLPHINN] Setting up the TUDAT simulation")
+
         #====================
         # Create environment
         #====================
@@ -177,43 +237,14 @@ class Verification:
             thrust_magnitude_function = self.GuidanceModel.getThrustMagnitude
             thrust_direction_function = self.GuidanceModel.getInertialThrustDirection
 
-
-            # # =============================================
-            # # ======= Example from recent P&O lunar ascent
-            # # =============================================
-            #
-            # # Create Engine with variable thrust
-            # thrust_magnitude_settings = propagation_setup.thrust.custom_thrust_magnitude_fixed_isp(thrust_magnitude_function,
-            #                                                                                         specific_impulse = self.isp)
-            # environment_setup.add_engine_model("Vehicle",
-            #                                     "MainEngine",
-            #                                     thrust_magnitude_settings,
-            #                                     self.bodies)
-            # # Create rototation model
-            # rotation_model_settings = environment_setup.rotation_model.custom_inertial_direction_based(lambda time : np.array([1,0,0] ),
-            #                                                                                            global_frame_orientation,
-            #                                                                                            "VehicleFixed",
-            #                                                                                            )
-            # environment_setup.add_rotation_model(self.bodies,
-            #                                      "Vehicle",
-            #                                      rotation_model_settings,
-            #                                     )
-            # # Set thrust functions in the acceleration model
-            # vehicle_rotation_model = self.bodies.get_body('Vehicle').rotation_model
-            # vehicle_rotation_model.inertial_body_axis_calculator.inertial_body_axis_direction_function = thrust_direction_function
-
-            # =============================================
-            # ======= My implementation ===================
-            # =============================================
-
             # Create rototation model: aim body fixed frame at inertial thrust direction
             rotation_model_settings = environment_setup.rotation_model.custom_inertial_direction_based(thrust_direction_function,
-                                                                                                       global_frame_orientation,
-                                                                                                       "VehicleFixed",
-                                                                                                       )
+                                                                                                        global_frame_orientation,
+                                                                                                        "VehicleFixed",
+                                                                                                        )
             environment_setup.add_rotation_model(self.bodies,
-                                                 "Vehicle",
-                                                 rotation_model_settings,
+                                                    "Vehicle",
+                                                    rotation_model_settings,
                                                 )
 
 
@@ -227,7 +258,6 @@ class Verification:
                                                 thrust_magnitude_settings,
                                                 self.bodies,
                                                 body_fixed_thrust_direction = np.array([-1, 0, 0]).reshape(-1, 1))
-
 
         #====================
         # Setup Propagation
@@ -281,11 +311,6 @@ class Verification:
 
         if self.verbose:
             print("[DOLPHINN] Start Integrating")
-            print(f"{'   Start epoch'.ljust(30)}{self.simulation_start_epoch}")
-            print(f"{'   End epoch'.ljust(30)}{self.simulation_end_epoch}")
-            print(f"{'   Fixed step size'.ljust(30)}{self.fixed_step_size}")
-            print(f"{'   Initial state'.ljust(30)}{self.initial_state.reshape(1, -1)[0]}")
-            print()
 
         start = time.time()
         # Create simulation object and propagate the dynamics
@@ -296,8 +321,32 @@ class Verification:
         if self.verbose:
             print(f"[DOLPHINN] Finished integrating in {np.round(end-start, 5)} s")
 
-        self.state_history = self.dynamics_simulator.state_history
-        self.states = {"cartesian": result2array(self.state_history)}
+        # Unpack the tudat propagation
+        state_history = self.dynamics_simulator.state_history
+        state_history_arr = result2array(state_history)
+
+        # Interpolate the tudat solution
+        interpolator = CubicSpline(state_history_arr[:,0],
+                                   state_history_arr[:,1:])
+
+        # Get the states at the times of the NN tests
+        _time = self.ref_times.reshape(-1, 1)
+        _states = interpolator(_time)[:,0,:]
+
+        # Remove the z axis
+        _states = np.delete(_states, 5, axis=1)
+        _states = np.delete(_states, 2, axis=1)
+
+        # Add the time column to the states
+        _states = np.concatenate((_time, _states), axis = 1)
+
+        # potentially add the control to the states
+        if self.control_nodes:
+            _control = np.array(list(self.control_nodes.values()))
+            _states = np.concatenate((_states, _control), axis = 1)
+
+        # Create the states dictionary
+        self.states = {"cartesian": _states}
 
 
     def calculate_coordinates(self, coordinates, config):
@@ -353,7 +402,8 @@ class Verification:
                     isp = isp,
                     central_body = central_body,
                     control_nodes = control_nodes,
-                    original_coordinates = coordinates)
+                    original_coordinates = coordinates,
+                    ref_times = cartesian_states[:,0])
 
     @classmethod
     def from_DOLPHINN(cls, DOLPHINN):
