@@ -56,7 +56,7 @@ class Restarter(Function):
         while np.any(np.isnan(temp_final_test_loss)) or np.sum(temp_final_test_loss) > self.loss_threshold:
 
             if DOLPHINN.base_verbose:
-                print(f"Initialisation attempt: {attempt}")
+                print(f"[RESTARTER] Initialisation attempt: {attempt}")
 
             # Initialize new network if not the first time
             if not attempt==1:
@@ -69,7 +69,7 @@ class Restarter(Function):
             # Break if max attempts reached
             if attempt == self.max_attempts:
                 if DOLPHINN.base_verbose:
-                    print("Maximum amount of attempts reached, stopping the restarter")
+                    print("[RESTARTER] Maximum amount of attempts reached, stopping the restarter")
                 break
 
             # Prepare next attempt
