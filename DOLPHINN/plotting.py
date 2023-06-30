@@ -15,7 +15,11 @@ def plot_loss(case,
 
     if oweigth == None:
         try:
-            oweigth = case.config['train_1']['loss_weigths'][-1]
+            counter = 0
+            for key in list(case.config.keys()):
+                if key[:5] == 'train':
+                    counter += 1
+            oweigth = case.config[f'train_{counter}']['loss_weigths'][-1]
         except:
             oweigth = None
 
@@ -79,6 +83,7 @@ def plot_transfer(case,
         y = case.bench.states['NDcartesian'][:,1:]
     else:
         y = case.states['NDcartesian'][:,1:]
+
 
     theta = np.linspace(0, 2*np.pi, 1000)
 
