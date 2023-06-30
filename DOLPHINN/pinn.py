@@ -141,7 +141,7 @@ class DOLPHINN:
         test_path = path + "test.dat"
         loss_path = path + "loss.dat"
 
-        files = os.listdir("../Data/test/")
+        files = os.listdir(path)
         for file in files:
             if file[-5:] == "index":
                 weigths_path = path + file.split(".")[0] + ".ckpt"
@@ -205,7 +205,8 @@ class DOLPHINN:
         # Create data dictionary
         data = {key: value for key, value in config.items() if key not in function_keys+training_keys}
         for key in ['initial_state', 'final_state']:
-            data[key] = np.array(data[key])
+            if key in list(config.keys()):
+                data[key] = np.array(data[key])
 
         # Add old solutions training procedure to data file in case of solutinon
         if solution:
@@ -300,7 +301,7 @@ class DOLPHINN:
 
         if self.old_solution:
             if self.base_verbose:
-                print("[DOLPHINN]: Compiling the DeepXDE model to be able to use DOLPHINN.model.predict")
+                print("[DOLPHINN] Compiling the DeepXDE model to be able to use DOLPHINN.model.predict")
 
             self.model.compile("adam", lr = 1e-8)
 
@@ -314,7 +315,8 @@ class DOLPHINN:
                                    training is not possible. Recreate this solution \
                                    with DOLPHINN.from_config(config, train = True, upload_seed = True) \
                                    to get (nearly) the same solution. Only difference is the random aspect \
-                                   in the training data sampling"
+                                   in the training data sampling. If you want to enforce additional training\
+                                   set DOLPHINN.old_solution = True."
 
         if not isinstance(algorithm, list):
             algorithm = [algorithm]
@@ -461,8 +463,8 @@ class DOLPHINN:
 
         # Transform np.arrays to lists for JSON
         for key in ['initial_state', 'final_state']:
-            self.config[key] = list(self.config[key])
-
+            if key in list(self.config.keys()):
+                self.config[key] = list(self.config[key])
 
     def verify(self):
         '''
@@ -473,10 +475,4 @@ class DOLPHINN:
 
         self.bench = verification.Verification.from_DOLPHINN(self)
         self.bench.integrate()
-
-
-
-
-
-
-
+        #self.bench.calculate_coordinates("NDcartesian", self.config)
