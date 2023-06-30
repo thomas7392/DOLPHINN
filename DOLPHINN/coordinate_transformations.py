@@ -1,7 +1,27 @@
 import numpy as np
 
 def NDcartesian_to_radial(states, config):
-    pass
+    cartesian = np.zeros(states.shape)
+    cartesian[..., 0] = states[..., 0]
+
+    x = states[..., 1]
+    y = states[..., 2]
+
+    r = np.sqrt(x**2 + y**2)
+    thetas = np.arctan(y/x)
+
+    rotations = np.array([[[np.cos(theta), np.sin(theta)],
+                           [-np.sin(theta),  np.cos(theta)]] for theta in thetas])
+
+    cartesian[..., 1] = r
+    cartesian[..., 2] = thetas
+    cartesian[..., 3:5] = (rotations @ states[..., 3:5].reshape(len(states), 2, 1)).reshape(len(states), 2)
+
+    # Concert the control term to cartesian
+    if states.shape[1] > 5:
+        cartesian[..., 5:7] = (rotations @ states[..., 5:7].reshape(len(states), 2, 1)).reshape(len(states), 2)
+
+    return cartesian
 
 def radial_to_NDcartesian(states, config):
 
@@ -46,3 +66,6 @@ def NDcartesian_to_cartesian(states, config):
 
 def radial_to_cartesian(states, config):
     return NDcartesian_to_cartesian(radial_to_NDcartesian(states, config), config)
+
+def cartesian_to_radial(states, config):
+    return NDcartesian_to_radial(cartesian_to_NDcartesian(states, config), config)
