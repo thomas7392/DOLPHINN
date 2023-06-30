@@ -5,7 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_loss(case, oweigth = None):
+def plot_loss(case,
+              oweigth = None,
+              objective_zoom = False):
 
     steps = case.steps
     loss_train = case.loss_train
@@ -17,8 +19,13 @@ def plot_loss(case, oweigth = None):
         except:
             oweigth = None
 
-    loss_labels = ["r", "v$_r$", r"v$_{\theta}$", f"Objective (fuel)\nWeight = {oweigth}"]
-    fig, axes = plt.subplots(1, 3, figsize = (21, 6))
+    loss_labels = case.dynamics.loss_labels
+
+    if case.objective:
+        loss_labels += [f"Objective (fuel)\nWeight = {oweigth}"]
+
+    fig, axes = plt.subplots(1, 2 + int(objective_zoom), figsize = (21, 6))
+
     axes[0].plot(steps, np.sum(loss_train, axis = 1), label = "Train loss")
     axes[0].plot(steps, np.sum(loss_test, axis = 1), "r--", dashes = (4, 4),  label = "Test loss")
     axes[0].set_title("Total Loss", fontsize = 20)
@@ -27,11 +34,13 @@ def plot_loss(case, oweigth = None):
     for i in range(len(loss_train[0])):
         axes[1].plot(steps, np.array(loss_train)[:,i], label = loss_labels[i])
 
-    axes[2].set_title("Objective Loss Zoom-In", fontsize = 20)
-    axes[2].plot(steps[steps > 10000], np.array(loss_train)[steps > 10000,-1], label = "Train")
-    axes[2].plot(steps[steps > 10000], np.array(loss_test)[steps > 10000,-1],
-                 label = f"Test\nFinal Fuel mass = {np.round(loss_test[-1, -1]/oweigth, 2)} kg")
-    #axes[2].set_yscale("log")
+    if objective_zoom:
+        axes[2].set_title("Objective Loss Zoom-In", fontsize = 20)
+        axes[2].plot(steps[steps > 10000], np.array(loss_train)[steps > 10000,-1], label = "Train")
+        axes[2].plot(steps[steps > 10000], np.array(loss_test)[steps > 10000,-1],
+                    label = f"Test\nFinal Fuel mass = {np.round(loss_test[-1, -1]/oweigth, 2)} kg")
+        #axes[2].set_yscale("log")
+
     axes[0].set_yscale("log")
     axes[1].set_yscale("log")
 
@@ -46,7 +55,9 @@ def plot_loss(case, oweigth = None):
         ax.tick_params(axis="both",direction="in",which="both", length=4, width = 1.2)
         ax.tick_params(bottom=True, top=True, left=True, right=True)
 
-    print("Test fuel: ", np.round(loss_test[-1, -1]/oweigth, 2), " kg ")
+
+
+
 
 
 def plot_transfer(case, thrust = True, velocity = False):
@@ -65,6 +76,7 @@ def plot_transfer(case, thrust = True, velocity = False):
     fig, ax = plt.subplots(1, figsize = (10, 10))
     fig.suptitle("Physically Constrained Neural Network Solution", fontsize = 25, y=0.95)
     plt.plot(y[:,0], y[:,1], label = "transfer trajectory")
+
     plt.plot(r_inner*np.cos(theta), r_inner*np.sin(theta), label = "Target orbit")
     plt.plot(r_outer*np.cos(theta), r_outer*np.sin(theta), label = "Earth orbit")
 
