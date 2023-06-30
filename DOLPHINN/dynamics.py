@@ -6,6 +6,7 @@ from deepxde.backend import tf
 
 from .function import Function
 
+
 class TwoBodyProblemNoneDimensional(Function):
     '''
     Equations of motion for the two body problem with cartesian coordinates,
@@ -141,12 +142,12 @@ class TwoBodyProblemRadialNonDimensional(Function):
         loss (list): Residial of the individual equations of motion
     '''
     control = False
-    entries = 3
+    entries = 4
     control_entries = 0
     loss_entries = 3
     coordinates = 'radial'
     loss_labels = ["r", "v$_r$", r"v$_{\theta}$"]
-    entry_labels = ["r", "v$_r$", r"v$_{\theta}$"]
+    entry_labels = ["r",  f"$\theta$", "v$_r$", r"v$_{\theta}$"]
 
     def __init__(self, data):
         super().__init__(data)
@@ -193,12 +194,12 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
     '''
 
     control = True
-    entries = 5
+    entries = 6
     control_entries = 2
     loss_entries = 3
     coordinates = 'radial'
     loss_labels = ["r", "v$_r$", r"v$_{\theta}$"]
-    entry_labels = ["r", "v$_r$", r"v$_{\theta}$", "u$_r$", r"u$_{\theta}$"]
+    entry_labels = ["r", f"$\theta$", "v$_r$", r"v$_{\theta}$", "u$_r$", r"u$_{\theta}$"]
 
     def __init__(self, data):
         super().__init__(data)
