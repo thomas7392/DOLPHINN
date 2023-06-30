@@ -27,7 +27,7 @@ def radial_to_NDcartesian(states, config):
 
 def cartesian_to_NDcartesian(states, config):
 
-    NDcartesian = np.zeros(states.shape)
+    NDcartesian = np.copy(states)
     NDcartesian[..., 0] = states[..., 0] / config['time_scale']
     NDcartesian[..., 1:3] = states[..., 1:3] / config['length_scale']
     NDcartesian[..., 3:5] = states[..., 3:5] * (config['time_scale']/config['length_scale'])
@@ -36,7 +36,7 @@ def cartesian_to_NDcartesian(states, config):
 
 def NDcartesian_to_cartesian(states, config):
 
-    cartesian = np.zeros(states.shape)
+    cartesian = np.copy(states)
     cartesian[..., 0] = states[..., 0] * config['time_scale']
     cartesian[..., 1:3] = states[..., 1:3] * config['length_scale']
     cartesian[..., 3:5] = states[..., 3:5] / (config['time_scale']/config['length_scale'])
