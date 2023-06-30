@@ -3,9 +3,12 @@
 
 # General imports
 import os
+import sys
 import numpy as np
 import datetime
 import json
+
+from scipy.interpolate import CubicSpline
 
 # DeepXDE Imports
 import deepxde as dde
@@ -23,6 +26,17 @@ from . import verification
 
 from .function import Function
 from .ObjectivePINN import ObjectivePINN
+
+#Get the absolute path of the current scriptf
+# space_hnn_path = "C:\Users\thoma\Documents\Master_Space_Exploration\Thesis_Space\space_hnn"
+# sys.path.append(space_hnn_path)
+
+current_path = os.path.dirname(os.path.abspath(__file__))
+space_hnn_path = os.path.join(current_path, '../../space_hnn')
+sys.path.append(space_hnn_path)
+
+from TwoBodyProblem import TwoBodyProblem
+
 
 class DOLPHINN:
     '''
@@ -379,6 +393,13 @@ class DOLPHINN:
             self.states["NDcartesian"] = transformation(self.states[self.dynamics.coordinates],
                                                         self.config)
 
+    def calculate_coordinates(self, coordinates):
+
+        existing_coordiantes = self.dynamics.coordinates
+        transformation = getattr(coordinate_transformations, f"{existing_coordiantes}_to_{coordinates}")
+        self.states[coordinates] = transformation(self.states[existing_coordiantes], self.config)
+
+
     def _upload_solution(self, solution):
 
         best_y_arr = solution[0]
@@ -466,6 +487,7 @@ class DOLPHINN:
             if key in list(self.config.keys()):
                 self.config[key] = list(self.config[key])
 
+
     def verify(self):
         '''
         Perform a verification of a trained network by integrating the dynamics,
@@ -475,4 +497,9 @@ class DOLPHINN:
 
         self.bench = verification.Verification.from_DOLPHINN(self)
         self.bench.integrate()
-        #self.bench.calculate_coordinates("NDcartesian", self.config)
+        self.bench.calculate_coordinates("NDcartesian", self.config)
+
+
+    def verify_custom(self):
+
+        self.bench = verification.VerificationCustom(self)
