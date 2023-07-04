@@ -4,6 +4,7 @@
 import numpy as np
 
 from .function import Function
+from .callbacks import SaveBest
 
 class Scheduler(Function):
 
@@ -17,37 +18,43 @@ class Scheduler(Function):
 
         super().__init__({})
 
-    def call(self, DOLPHINN):
+    def call(self,
+             DOLPHINN,
+             additional_callbacks = []):
 
         for (lr, iterations) in self.schedule:
+
+            DOLPHINN.current_lr = lr
             DOLPHINN.model.compile("adam",
                         lr = lr,
                         metrics = DOLPHINN.metrics,
                         loss_weights = self.loss_weigths)
 
             _, _ = DOLPHINN.model.train(iterations=iterations,
-                               callbacks = DOLPHINN.callbacks)
+                                        callbacks = [*DOLPHINN.callbacks, *additional_callbacks],
+                                        display_every = DOLPHINN.display_every)
 
 
 class Restarter(Function):
 
     def __init__(self,
+                 schedule,
                  loss_threshold = 10,
                  max_attempts = 50,
-                 loss_weigths = None,
-                 lr = 1e-2,
-                 iterations = 3000):
+                 loss_weigths = None):
 
         self.name = "Restarter"
+        self.schedule = schedule
         self.loss_threshold = loss_threshold
         self.max_attempts = max_attempts
         self.loss_weigths = loss_weigths
-        self.lr = lr
-        self.iterations = iterations
+
         super().__init__({})
 
 
-    def call(self, DOLPHINN):
+    def call(self,
+             DOLPHINN,
+             additional_callbacks = []):
 
         attempt = 1
         temp_final_test_loss = np.array([np.NAN])
@@ -62,9 +69,9 @@ class Restarter(Function):
             if not attempt==1:
                 DOLPHINN._create_model(verbose = DOLPHINN.base_verbose)
 
-            # Aggresive training
-            DOLPHINN.model.compile("adam", lr=self.lr, loss_weights = self.loss_weigths)
-            _, _ = DOLPHINN.model.train(iterations=self.iterations)
+            # Perform schedule
+            training_schedule = Scheduler(self.schedule, self.loss_weigths)
+            training_schedule.call(DOLPHINN, additional_callbacks=additional_callbacks)
 
             # Break if max attempts reached
             if attempt == self.max_attempts:
@@ -76,5 +83,40 @@ class Restarter(Function):
             attempt += 1
             temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
 
+
+
+class Restorer(Function):
+
+    def __init__(self,
+                 schedule,
+                 loss_weigths = None):
+
+        self.name = "Restorer"
+        self.schedule = schedule
+        self.loss_weigths = loss_weigths
+        super().__init__({})
+
+
+    def call(self,
+             DOLPHINN,
+             additional_callbacks = []):
+
+        # Create savebest callback
+        total_iterations = np.sum(np.array([x for _, x in self.schedule]))
+        savebest_callback = SaveBest(total_iterations, verbose = True)
+
+        # Call the scheduler
+        training_schedule = Scheduler(self.schedule, self.loss_weigths)
+        training_schedule.call(DOLPHINN, additional_callbacks=[savebest_callback, *additional_callbacks])
+
+        # Restore best
+        DOLPHINN.restore(savebest_callback.weigths_path)
+
+        if DOLPHINN.base_verbose:
+            print(f"[DOLPHINN] Restored model from: {savebest_callback.weigths_path}")
+
+        savebest_callback.delete_directory_contents()
+
+        print("[DOLPHINN] Finished Restorer training algorithm: best ")
 
 
