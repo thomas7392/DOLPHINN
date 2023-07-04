@@ -9,14 +9,42 @@ import tensorflow_probability as tfp
 
 from .function import Function
 
+class Objective(Function):
 
-class OptimalFuel(Function):
+
+    def __init__(self, data, mass_included):
+        self._entries = len(data['initial_state'])
+        self.mass_included = mass_included
+        super().__init__(data)
+
+class OptimalFinalMass(Objective):
 
     def __init__(self,
-                data):
+                data,
+                mass_included):
+
+        super().__init__(data, mass_included)
+
+    def call(self, t, y, losses):
+        '''
+        Calculate consumed mass by integrating the thrust profile.
+        Requires a whole batch of input/output pairs.
+        '''
+        if self.mass_included:
+            return y[-1, -1]
+        else:
+            raise Exception("[DOLPHINN] Optimal final mass objective is selected, but mass is not propagated")
+
+
+class OptimalFuel(Objective):
+
+    def __init__(self,
+                 data,
+                 mass_included):
 
         self._entries = len(data['initial_state'])
-        super().__init__(data)
+
+        super().__init__(data, mass_included)
 
     def call(self, t, y, losses):
         '''
@@ -27,7 +55,10 @@ class OptimalFuel(Function):
         # Get control and calculate norm
         t = tf.reshape(t, (1, -1))[0] * self.time_scale
 
-        U = y[:, self._entries:]
+        if self.mass_included:
+            U = y[:, self._entries:-1]
+        else:
+            U = y[:, self._entries:]
 
         U_norm = tf.norm(U, axis=1)
 
@@ -42,14 +73,14 @@ class OptimalFuel(Function):
         return propellent_mass
 
 
-class OptimalTime(Function):
+class OptimalTime(Objective):
 
     def __init__(self,
-                data):
+                data,
+                mass_included):
 
-        self._entries = len(data['final_state'])
         self._initial_tensor = tf.convert_to_tensor(np.array([data['final_state']]), tf.float32)
-        super().__init__(data)
+        super().__init__(data, mass_included)
 
     def call(self, t, y, losses):
         '''
@@ -59,6 +90,7 @@ class OptimalTime(Function):
 
         # Get control and calculate norm
         states = y[:, :self._entries]
+
         diffs = tf.subtract(states, self._initial_tensor)
         squared_diffs  = tf.square(diffs)
         column_averages = tf.reduce_mean(squared_diffs, axis=0)
