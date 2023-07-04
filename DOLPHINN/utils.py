@@ -104,12 +104,15 @@ def print_config(config):
     function_keys = ['dynamics', 'input_transform', 'output_transform', 'objective']
     training_keys = [key for key in list(config.keys()) if key[:5] == "train"]
     network_keys = ["architecture", "activation", "sampler", "N_train", "N_boundary", "N_test", "seed"]
-    problem_keys = [key for key in list(config.keys()) if key not in function_keys+training_keys+network_keys]
+    metric_keys = [key for key in list(config.keys()) if key[:6] == "metric"]
+    problem_keys = [key for key in list(config.keys()) if key not in function_keys+training_keys+network_keys+metric_keys]
 
     keys = {"Functions": function_keys,
             "Problem": problem_keys,
             "Network": network_keys,
-            "Training": training_keys}
+            "Metrics": metric_keys,
+            "Training": training_keys,
+            }
 
     print(f"\n {'='*20} Config Content {'='*20}\n")
 
