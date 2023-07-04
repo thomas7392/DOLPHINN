@@ -15,9 +15,9 @@ def plot_loss(case,
 
     if oweigth == None:
         try:
-            counter = 0
+            counter = -1
             for key in list(case.config.keys()):
-                if key[:5] == 'train':
+                if key.split("_")[0] == 'train' and key.split("_")[1] != "time":
                     counter += 1
             oweigth = case.config[f'train_{counter}']['loss_weigths'][-1]
         except:
@@ -111,6 +111,7 @@ def plot_transfer(case,
     if thrust:
         arrow_indices = np.linspace(0, len(y[:,0])-1, N_arrows, dtype = int)
         scale = thrust_scale
+
         for i in arrow_indices:
             plt.arrow(y[i,0],
                       y[i,1],
@@ -233,8 +234,6 @@ def plot_coordinates(DOLPHINN,
         ax.tick_params(axis="both", direction="in", which="both", length=4, width = 1.2)
         ax.tick_params(bottom=True, top=True, left=True, right=True)
 
-    return fig, axes
-
 
 
 def compare(DOLPHINN,
@@ -247,7 +246,6 @@ def compare(DOLPHINN,
 
     if coordinates not in list(DOLPHINN.bench.states.keys()):
         raise ValueError(f"[DOLPHINN] Verification solution does not contain {coordinates} ephemeris")
-
 
     time = DOLPHINN.states[coordinates][:,0]
     states = DOLPHINN.states[coordinates][:,1:1+DOLPHINN.dynamics.entries-DOLPHINN.dynamics.control_entries]
@@ -296,6 +294,35 @@ def compare(DOLPHINN,
 
     for ax in axes.flat:
         ax.legend()
+        for axis in ['top','bottom','left','right']:
+            ax.spines[axis].set_linewidth(1.2)
+        ax.tick_params(labelsize=16)
+        ax.tick_params(axis="both", direction="in", which="both", length=4, width = 1.2)
+        ax.tick_params(bottom=True, top=True, left=True, right=True)
+
+
+def compare_mass(case):
+
+
+    if not hasattr(case, "mass"):
+        raise AttributeError("[DOLPHINN] Given DOLPHINN has not mass attribute")
+    if not hasattr(case.bench, "mass"):
+        raise AttributeError("[DOLPHINN] Given TUDAT verification has not mass attribute")
+
+    fig, axes = plt.subplots(2, 1, figsize = (7, 8), gridspec_kw={'height_ratios': [5, 2]}, sharex = True)
+    fig.subplots_adjust(hspace=0.1)
+    fig.suptitle("Spacecraft mass evolution", fontsize = 18, y = 0.96)
+
+    axes[0].plot(case.mass[:,0], case.mass[:,1], label = "DOLPHINN mass")
+    axes[0].plot(case.bench.mass[:,0]/case.data['time_scale'], case.bench.mass[:,1], linestyle = '--', label = "TUDAT Mass")
+    axes[0].set_ylabel("Mass [kg]", fontsize = 16)
+    axes[0].legend()
+
+    axes[1].plot(case.mass[:,0], case.mass[:,1] - case.bench.mass[:,1])
+    axes[1].set_ylabel("Mass Residual [kg]", fontsize = 16)
+    axes[1].set_xlabel("Time [-]", fontsize = 16)
+
+    for ax in axes.flat:
         for axis in ['top','bottom','left','right']:
             ax.spines[axis].set_linewidth(1.2)
         ax.tick_params(labelsize=16)
