@@ -1,3 +1,6 @@
+## Thomas Goldman 2023
+# DOLPHINN
+
 import numpy as np
 
 def NDcartesian_to_radial(states, config):
