@@ -7,6 +7,7 @@ import sys
 import numpy as np
 import datetime
 import json
+import time
 
 from scipy.interpolate import CubicSpline
 
@@ -23,6 +24,7 @@ from . import training
 from . import utils
 from . import coordinate_transformations
 from . import verification
+from . import metrics
 
 from .function import Function
 from .ObjectivePINN import ObjectivePINN
@@ -49,12 +51,13 @@ class DOLPHINN:
                  input_transform = None,
                  output_transform = None,
                  objective = None,
-                 verbose = True,
                  train = None,
                  metrics = [],
                  callbacks = [],
                  seed = None,
-                 solution = None):
+                 solution = None,
+                 display_every = 1000,
+                 verbose = True):
         '''
         Initalizes the class
 
@@ -92,14 +95,21 @@ class DOLPHINN:
             # Check if not None
             if function:
 
+                # Check type
                 if isinstance(function, str):
                     class_object = getattr(library, function)
-                    instance = class_object(data)
                 elif issubclass(function, Function):
-                    instance = function(data)
+                    class_object = function
                 else:
-                    raise TypeError(f"{fname} is of wrong type, should be a Function class or a string")
+                    raise TypeError(f"[DOLPHINN] {fname} is of wrong type, should be a Function class or a string")
 
+                # Create instance of class object
+                if fname == "objective":
+                    instance = class_object(data, self.dynamics.mass)
+                else:
+                    instance = class_object(data)
+
+                # Set instance of function object as attribute of DOLPHINN
                 setattr(self, fname, instance)
             else:
                 setattr(self, fname, None)
@@ -107,9 +117,13 @@ class DOLPHINN:
         self.data = data
         self.train_procedure = 0
         self.base_verbose = verbose
-        self.metrics = metrics
+        self.metrics = [m(self).try_call for m in metrics]
         self.callbacks = callbacks
+        for c in callbacks:
+            c.add_dolphinn(self)
         self.old_solution = True if solution else False
+        self.display_every = display_every
+        self.full_train_time = 0
 
         self._create_model(seed = seed, verbose = self.base_verbose)
         self._create_config()
@@ -188,11 +202,15 @@ class DOLPHINN:
             losshistory = utils.path_or_instance(solution[1], np.ndarray)
             weigths_path = solution[2]
             solution = [best_y, losshistory, weigths_path]
+            if 'train_time' in list(config.keys()):
+                solution.append(config['train_time'])
 
 
         # Retrieve function and training keys
         function_keys = ['dynamics', 'output_transform', 'input_transform', 'objective']
         training_keys = [key for key in list(config.keys()) if key[:5] == "train"]
+        metric_keys = [key for key in list(config.keys()) if key[:6] == "metric"]
+        metrics_ = [getattr(metrics, config[metric]) for metric in metric_keys]
 
         # Make valid None values of NoneType
         for function in function_keys:
@@ -217,7 +235,7 @@ class DOLPHINN:
                              implemented in DOLPHINN.objectives")
 
         # Create data dictionary
-        data = {key: value for key, value in config.items() if key not in function_keys+training_keys}
+        data = {key: value for key, value in config.items() if key not in function_keys+training_keys+metric_keys}
         for key in ['initial_state', 'final_state']:
             if key in list(config.keys()):
                 data[key] = np.array(data[key])
@@ -248,6 +266,7 @@ class DOLPHINN:
         if train and solution:
             raise ValueError("Train is requested and solution is provided: choose one")
 
+
         if verbose:
             print(f"[DOLPHINN] Config file succesfully parsed. Initializing DOLPHINN with:")
             utils.print_config(config)
@@ -260,7 +279,8 @@ class DOLPHINN:
                    train = training,
                    seed = seed,
                    solution = solution,
-                   verbose = verbose)
+                   verbose = verbose,
+                   metrics = metrics_)
 
     def _create_model(self, seed=None, verbose = True):
         '''
@@ -295,6 +315,15 @@ class DOLPHINN:
                             num_test = self.data['N_test'],
                             train_distribution = self.data['sampler'])
 
+        # Overide the get test data function that includes boundary points
+        test_data = np.linspace(self.data['t0'],
+                                self.data['tfinal'],
+                                self.data['N_test'],
+                                dtype=dde.config.real(np)).reshape(-1, 1)
+        def new_test(self):
+            return test_data, None, None
+        data.test = new_test.__get__(data, dde.data.PDE)
+
         initializer = tf.keras.initializers.GlorotNormal(seed=seed)
 
         net = dde.nn.PFNN(self.data['architecture'],
@@ -320,9 +349,10 @@ class DOLPHINN:
             self.model.compile("adam", lr = 1e-8)
 
     def train(self,
-              algorithm):
+              algorithm,
+              additional_callbacks = []):
         '''
-        Perform training
+        Train the Dolphin!
         '''
 
         assert not self.old_solution, "This is an old uploaded solution, additional \
@@ -342,29 +372,39 @@ class DOLPHINN:
                                 the training class should inherrit the\
                                 DOLPHINN.function.Function class")
 
+        start_train = time.time()
 
         #Iterate over training algorithms
         for alg in algorithm:
-
             if self.base_verbose:
                 print(f"\n[DOLPHINN] Training with procedure: {alg.name}\n")
-            self.train_procedure += 1
-            alg.call(self)
-            self._update_config(alg)
+            alg.call(self, additional_callbacks) #Train the DOLPHINN
 
-        # Create states and loss in DOLPHINN class instance
+        end_train = time.time()
+        training_time = end_train - start_train
+        self.full_train_time += training_time
+
+        self._update_config(algorithm)
+
+        if self.base_verbose:
+            print(f'[DOLPHINN] This training {[alg.name for alg in algorithm]} took {np.round(training_time, 2)} s')
+            print(f"[DOLPHINN] The entire training so far took: {np.round(self.full_train_time, 2)} s")
+
+        # Create best states and loss in DOLPHINN class instance
         self._create_states_and_loss(self.model.train_state.X_test,
-                            self.model.train_state.best_y,
-                            np.array(self.model.losshistory.loss_train),
-                            np.array(self.model.losshistory.loss_test),
-                            np.array(self.model.losshistory.steps))
+                                    self.model.train_state.best_y,
+                                    np.array(self.model.losshistory.loss_train),
+                                    np.array(self.model.losshistory.loss_test),
+                                    np.array(self.model.losshistory.steps),
+                                    self.model.losshistory.metrics_test)
 
     def _create_states_and_loss(self,
                                 time,
                                 best_y,
                                 loss_train,
                                 loss_test,
-                                steps):
+                                steps,
+                                metrics):
         '''
         Stores the loss history and best test solution in the
         DOLPHINN instance. Converts states to Non-Dimensional cartesian.
@@ -374,8 +414,15 @@ class DOLPHINN:
         self.loss_train = loss_train
         self.loss_test = loss_test
         self.steps = steps
+        self.metrics_test = metrics
 
-        # Retrieve theta if radial coordinates
+        # Store mass seperately and then strip mass from the states
+        # Assume mass is always the final entry
+        if self.dynamics.mass:
+            self.mass = np.concatenate((time, best_y[:,-1].reshape(-1, 1)), axis = 1)
+            best_y = best_y[:,:-1]
+
+        # Retrieve theta if radial coordinates, then add time and initial state
         if self.dynamics.coordinates == "radial":
             theta = utils.integrate_theta(time[:,0],
                                           best_y)
@@ -402,9 +449,15 @@ class DOLPHINN:
 
     def _upload_solution(self, solution):
 
+
         best_y_arr = solution[0]
         losshistory_arr = solution[1]
         weigths_path = solution[2]
+
+        self.restore(weigths_path)
+
+        if len(solution) > 3:
+            self.full_train_time = solution[-1]
 
         time = best_y_arr[:,0:1]
         best_y = best_y_arr[:,1:]
@@ -412,15 +465,16 @@ class DOLPHINN:
         loss_entries = self.dynamics.loss_entries + int(bool(self.objective))
         loss_train = losshistory_arr[:,1:1+loss_entries]
         loss_test = losshistory_arr[:,1+loss_entries:1+2*loss_entries]
+        metrics_test = losshistory_arr[:,1+2*loss_entries:]
         steps = losshistory_arr[:,0]
 
         self._create_states_and_loss(time,
                                     best_y,
                                     loss_train,
                                     loss_test,
-                                    steps)
+                                    steps,
+                                    metrics_test)
 
-        self.restore(weigths_path)
 
     def store(self, path, overwrite = False):
         '''
@@ -459,13 +513,19 @@ class DOLPHINN:
             print(f"[DOLPHINN] Restored weights at {path}")
 
 
-    def _update_config(self, algorithm):
+    def _update_config(self, algorithms):
         '''
         Update the configuration file with a training
         '''
 
-        training_overview = {f"train_{self.train_procedure}": Function.get_attributes(algorithm)}
-        self.config.update(training_overview)
+        for i, algorithm in enumerate(algorithms):
+            training_overview = {f"train_{self.train_procedure + i}": Function.get_attributes(algorithm)}
+            self.config.update(training_overview)
+
+        self.train_procedure += len(algorithms)
+
+        training_time = {"train_time": self.full_train_time}
+        self.config.update(training_time)
 
     def _create_config(self):
         '''
@@ -478,6 +538,8 @@ class DOLPHINN:
                         "output_transform": self.output_transform.__class__.__name__,
                         "input_transform": self.input_transform.__class__.__name__,
                         }
+
+        self.config.update({f"metric_{i+1}": metric.__self__.__class__.__name__ for i, metric in enumerate(self.metrics)})
 
         # Include data
         self.config.update(self.data)

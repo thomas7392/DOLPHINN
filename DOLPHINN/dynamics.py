@@ -24,6 +24,7 @@ class TwoBodyProblemNoneDimensional(Function):
         loss (list): Residial of the individual equations of motion
     '''
     control = False
+    mass = False
     coordinates = 'NDcartesian'
     entries = 4
     control_entries = 0
@@ -80,6 +81,7 @@ class TwoBodyProblemNonDimensionalControl(Function):
         loss (list): Residial of the individual equations of motion
     '''
     control = False
+    mass = False
     entries = 6
     control_entries = 2
     loss_entries = 4
@@ -142,6 +144,7 @@ class TwoBodyProblemRadialNonDimensional(Function):
         loss (list): Residial of the individual equations of motion
     '''
     control = False
+    mass = False
     entries = 4
     control_entries = 0
     loss_entries = 3
@@ -194,6 +197,7 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
     '''
 
     control = True
+    mass = False
     entries = 6
     control_entries = 2
     loss_entries = 3
@@ -228,4 +232,66 @@ class TwoBodyProblemRadialNonDimensionalControl(Function):
             dx1_dt - RHS_x1,
             dx2_dt - RHS_x2,
             dx3_dt - RHS_x3,
+            ]
+
+
+class TwoBodyProblemRadialNonDimensionalControl_mass(Function):
+    '''
+    Equations of motion for the two body problem in non-dimensional units,
+    including a control term. Time has been scaled with time_scale and position
+    with length_scale. Function is used by DeepXDE to construct the Dynamics
+    loss term of a PINN
+
+    State entries: [r, v_r, v_{\theta}, u_r, u_{\theta}]
+
+    Args:
+        x (tf.tensor): Network input, time
+        y (tf.tensor): Network prediction, position, velocity
+
+    Returns:
+        loss (list): Residual of the individual equations of motion
+    '''
+
+    control = True
+    mass = True
+    entries = 6
+    control_entries = 2
+    loss_entries = 4
+    coordinates = 'radial'
+    loss_labels = ["r", "v$_r$", r"v$_{\theta}$", "m"]
+    entry_labels = ["r", f"$\theta$", "v$_r$", r"v$_{\theta}$", "u$_r$", r"u$_{\theta}$"]
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def call(self, time, y):
+
+        # Unpack tensors
+        x1 = y[:, 0:1]
+        x2 = y[:, 1:2]
+        x3 = y[:, 2:3]
+
+        ur = y[:, 3:4]
+        ut = y[:, 4:5]
+        m  = y[:, 5:6]
+
+        T = tf.reshape(tf.norm(y[:, 3:5], axis = 1), (-1, 1))
+
+        # Automatic differentation
+        dx1_dt = dde.grad.jacobian(y, time, i=0)
+        dx2_dt = dde.grad.jacobian(y, time, i=1)
+        dx3_dt = dde.grad.jacobian(y, time, i=2)
+        dm_dt = dde.grad.jacobian(y, time, i=5)
+
+        RHS_x1  = x2
+        RHS_x2  = x3**2/x1 - (self.mu * self.time_scale**2 / self.length_scale**3) * x1**(-2) +\
+              (self.time_scale**2/self.length_scale) * ur / m
+        RHS_x3  = - (x2*x3)/x1 + (self.time_scale**2/self.length_scale) * ut / m
+        RHS_m = -T * self.time_scale / (self.isp * 9.81)
+
+        return [
+            dx1_dt - RHS_x1,
+            dx2_dt - RHS_x2,
+            dx3_dt - RHS_x3,
+            dm_dt  - RHS_m,
             ]

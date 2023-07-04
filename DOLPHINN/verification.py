@@ -193,7 +193,8 @@ class Verification:
                  dolphinn_control_law = None,
                  original_coordinates = "cartesian",
                  verbose = True,
-                 ref_times = None):
+                 ref_times = None,
+                 mass_rate = False):
         '''
         Standard initializer
         '''
@@ -207,6 +208,7 @@ class Verification:
         self.isp = isp
         self.verbose = verbose
         self.ref_times = ref_times
+        self.mass_rate = mass_rate
 
         if self.verbose:
             print("[DOLPHINN] Setting up the TUDAT simulation")
@@ -287,25 +289,60 @@ class Verification:
         # Integration settings
         #============================
 
-        # control_settings = propagation_setup.integrator.step_size_control_elementwise_scalar_tolerance(1.0E-10, 1.0E-10)
-        # integrator_settings = propagation_setup.integrator.runge_kutta_variable_step(
-        #     initial_time_step = 1,
-        #     coefficient_set = propagation_setup.integrator.RKCoefficientSets.rkf_78,
-        #     step_size_control_settings = control_settings)
-
-        self.fixed_step_size = 5000
-        integrator_settings = propagation_setup.integrator.runge_kutta_4(self.fixed_step_size)
-
+        current_coefficient_set = propagation_setup.integrator.CoefficientSets.rkf_78
+        integrator_settings = propagation_setup.integrator.runge_kutta_variable_step_size(1.0,
+                                                                        current_coefficient_set,
+                                                                        1.0E-4,
+                                                                        np.inf,
+                                                                        1e-10,
+                                                                        1e-10)
         # Andd its ready to go!
-        self.propagator_settings = propagation_setup.propagator.translational(
-            central_bodies,
-            acceleration_models,
-            bodies_to_propagate,
-            self.initial_state,
-            self.simulation_start_epoch,
-            integrator_settings,
-            termination_settings
+        self.propagator_settings_translational = propagation_setup.propagator.translational(
+                central_bodies,
+                acceleration_models,
+                bodies_to_propagate,
+                self.initial_state,
+                self.simulation_start_epoch,
+                integrator_settings,
+                termination_settings
         )
+
+        # Potentially add mass rate model
+        if self.mass_rate:
+
+            # Create mass rate model
+            mass_rate_settings_on_vehicle = {'Vehicle': [propagation_setup.mass_rate.from_thrust()]}
+            mass_rate_models = propagation_setup.create_mass_rate_models(self.bodies,
+                                                                        mass_rate_settings_on_vehicle,
+                                                                        acceleration_models)
+
+            # Create mass propagator settings
+            self.mass_propagator_settings = propagation_setup.propagator.mass(bodies_to_propagate,
+                                                                        mass_rate_models,
+                                                                        np.array([self.m]),
+                                                                        self.simulation_start_epoch,
+                                                                        integrator_settings,
+                                                                        termination_settings)
+
+
+            propagator_settings_list = [self.propagator_settings_translational,
+                                    self.mass_propagator_settings]
+
+            mass_variable = propagation_setup.dependent_variable.body_mass("Vehicle")
+            dependent_variables_to_save = [mass_variable]
+
+        else:
+            propagator_settings_list = [self.propagator_settings_translational]
+            dependent_variables_to_save = []
+
+        # Create combination of translational and mass rate model
+        self.propagator_settings = propagation_setup.propagator.multitype(propagator_settings_list,
+                                                                        integrator_settings,
+                                                                        self.simulation_start_epoch,
+                                                                        termination_settings,
+                                                                        dependent_variables_to_save)
+
+
 
     def integrate(self):
 
@@ -318,12 +355,17 @@ class Verification:
                             self.bodies, self.propagator_settings)
         end = time.time()
 
+
         if self.verbose:
             print(f"[DOLPHINN] Finished integrating in {np.round(end-start, 5)} s")
 
         # Unpack the tudat propagation
         state_history = self.dynamics_simulator.state_history
         state_history_arr = result2array(state_history)
+
+        #Remove the mass from the state history
+        if self.mass_rate:
+            state_history_arr = state_history_arr[:,:-1]
 
         # Interpolate the tudat solution
         interpolator = CubicSpline(state_history_arr[:,0],
@@ -348,6 +390,13 @@ class Verification:
         # Create the states dictionary
         self.states = {"cartesian": _states}
 
+        if self.mass_rate:
+            mass_history = self.dynamics_simulator.dependent_variable_history
+            _mass = result2array(mass_history)
+            _mass_interpolater = CubicSpline(_mass[:,0], _mass[:,1:2])
+            _mass = _mass_interpolater(_time)[:,0,:]
+            self.mass = np.concatenate((_time, _mass), axis = 1)
+
 
     def calculate_coordinates(self, coordinates, config):
 
@@ -358,7 +407,8 @@ class Verification:
     def from_config_states(cls,
                            states,
                            config,
-                           verbose = True):
+                           verbose = True,
+                           mass_rate = False):
 
         # Get the dynamics info
         central_body, _, entries,\
@@ -403,7 +453,9 @@ class Verification:
                     central_body = central_body,
                     control_nodes = control_nodes,
                     original_coordinates = coordinates,
-                    ref_times = cartesian_states[:,0])
+                    ref_times = cartesian_states[:,0],
+                    verbose = verbose,
+                    mass_rate = mass_rate)
 
     @classmethod
     def from_DOLPHINN(cls, DOLPHINN):
@@ -413,7 +465,8 @@ class Verification:
 
         return cls.from_config_states(DOLPHINN.states,
                                       DOLPHINN.config,
-                                      verbose = DOLPHINN.base_verbose)
+                                      verbose = DOLPHINN.base_verbose,
+                                      mass_rate = DOLPHINN.dynamics.mass)
 
 
 
