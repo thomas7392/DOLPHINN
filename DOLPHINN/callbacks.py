@@ -138,33 +138,44 @@ class StoreAnimationData(Callback):
     def on_train_begin(self):
         self.X_test = self.model.train_state.X_test
 
+    def on_epoch_begin(self):
+        '''
+        Store the initialisation
+        '''
+
+        if self.epoch == 0:
+            self.store()
+
     def on_epoch_end(self):
         '''
         Store the test runs evever {period} epochs
         '''
 
         self.epoch += 1
-
         if self.epoch % self.period == 0 or self.epoch == 1:
+            self.store()
 
-            # Include training data and loss
-            self.X_train[self.epoch] = self.model.train_state.X_train
 
-            # Include testing data and loss
-            self.y_pred_train[self.epoch], self.loss_train[self.epoch] = self.model._outputs_losses(True,
-                                                                      self.model.train_state.X_train,
-                                                                      self.model.train_state.y_train,
-                                                                      self.model.train_state.test_aux_vars)
+    def store(self):
+        # Include training data and loss
+        self.X_train[self.epoch] = self.model.train_state.X_train
 
-            # Include testing data and loss
-            self.y_pred_test[self.epoch], self.loss_test[self.epoch] = self.model._outputs_losses(False,
-                                                                      self.model.train_state.X_test,
-                                                                      self.model.train_state.y_test,
-                                                                      self.model.train_state.test_aux_vars)
+        # Include testing data and loss
+        self.y_pred_train[self.epoch], self.loss_train[self.epoch] = self.model._outputs_losses(True,
+                                                                    self.model.train_state.X_train,
+                                                                    self.model.train_state.y_train,
+                                                                    self.model.train_state.test_aux_vars)
 
-            self.metrics[self.epoch] = [m(self.model.train_state) for m in self.model.metrics]
+        # Include testing data and loss
+        self.y_pred_test[self.epoch], self.loss_test[self.epoch] = self.model._outputs_losses(False,
+                                                                    self.model.train_state.X_test,
+                                                                    self.model.train_state.y_test,
+                                                                    self.model.train_state.test_aux_vars)
 
-            self.lr[self.epoch] = self.DOLPHINN.current_lr
+        self.metrics[self.epoch] = [m(self.model.train_state) for m in self.model.metrics]
+
+        self.lr[self.epoch] = self.DOLPHINN.current_lr
+
 
     def on_train_end(self):
         '''
