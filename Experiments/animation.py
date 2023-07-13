@@ -18,8 +18,9 @@ from DOLPHINN.coordinate_transformations import radial_to_NDcartesian
 #from utils import integrate_theta
 
 run_from_file = True
-base_path = "../Data/Optimisation/LVLH/mars_1_5_revolv2/"
+base_path = "../Data/Optimisation/LVLHm_fuel/case10/"
 coordinates = "radial"
+fuel_metric = True
 
 def create_animation(path):
     # TODO
@@ -71,7 +72,7 @@ if run_from_file:
     lim = 1.3 * max(r_initial, r_final)
 
     # Import data
-    with open(base_path + "animation_data/data.pickle", "rb") as handle:
+    with open(base_path + "data.pickle", "rb") as handle:
         data = pickle.load(handle)
 
     # Import config
@@ -100,6 +101,7 @@ if run_from_file:
         states = data['y_pred_test']
 
 
+
     epochs = np.array(list(data['y_pred_test'].keys()))
 
     iloss_train = np.array(list(data['loss_train'].values()))
@@ -109,12 +111,22 @@ if run_from_file:
     lr = np.array(list(data['lr'].values()))
     n_epochs = epochs[-1]
 
+    #CHeck if fuel metric exists:
+    i_fuel = 0
+
+    if fuel_metric:
+        for key, value in config.items():
+            if key.split("_")[0] == "metric":
+                if value == "Fuel":
+                    i_fuel = int(key.split("_")[1]) - 1
+
+    if i_fuel == 0 and fuel_metric:
+        raise Exception("[DOLPHINN] Asked to plot the fuel metric but it is not stored in metrics")
+
     # Lay out settings
     base_title = "DOLPHINN transfer solution"
     specific_title = f"Fixed-time: {int(config['tfinal']*config['time_scale']/(24*3600))} days"
     N_THRUST_VECTORS = 50
-
-
 
     fig = plt.figure(figsize = (14, 7))
     gs = GridSpec(4, 2, left=0.05, right=0.95, wspace=0.2)
@@ -137,11 +149,17 @@ if run_from_file:
 
     # Empty line objects for the animation
     line_trajectory, = axes[0].plot([], [], lw=2)
-    line_train_loss, = axes[1].plot([], [], lw=2, label = "Train loss")
-    line_test_loss, = axes[1].plot([], [], lw=2, label = "Test Loss", linestyle = '--', zorder = 100)
+
+    if fuel_metric:
+        line_fuel, = axes[1].plot([], [], lw=2, label = "Fuel")
+    else:
+        line_train_loss, = axes[1].plot([], [], lw=2, label = "Train loss")
+        line_test_loss, = axes[1].plot([], [], lw=2, label = "Test Loss", linestyle = '--', zorder = 100)
+
     line_x_metric, = axes[2].plot([], [], lw = 2, label = "Position")
     line_v_metric, = axes[2].plot([], [], lw = 2, label = "Velocity")
 
+    # Individual loss lines
     iloss_lines = []
     for i in range(len(iloss_train[0])):
         line, = axes[3].plot([], [], label = f"Loss index {i}")
@@ -176,9 +194,13 @@ if run_from_file:
 
     # Style Loss
     axes[1].set_xlim(0, n_epochs)
-    axes[1].set_ylim(1e-7, 1e5)
-    axes[1].set_yscale("log")
-    axes[1].set_ylabel("Loss", fontsize=14)
+    if fuel_metric:
+        axes[1].set_ylabel("Fuel", fontsize=14)
+        axes[1].set_ylim(0, 100)
+    else:
+        axes[1].set_ylabel("Loss", fontsize=14)
+        axes[1].set_ylim(1e-7, 1e5)
+        axes[1].set_yscale("log")
     axes[1].set_xlabel("Epochs [-]", fontsize=14)
     axes[1].grid()
 
@@ -186,7 +208,7 @@ if run_from_file:
 
     # Style metrics
     axes[2].set_xlim(0, n_epochs)
-    axes[2].set_ylim(1e-5, 1e2)
+    axes[2].set_ylim(0.6*np.min(metrics[:,:2]), 4*np.max(metrics[:,:2]))
     axes[2].set_yscale("log")
     axes[2].grid()
     axes[2].legend()
@@ -218,11 +240,11 @@ if run_from_file:
 
     def init():
 
-        line_trajectory.set_data([], [])  # Clear the line
-        line_train_loss.set_data([], [])  # Clear the line
-        line_test_loss.set_data([], [])  # Clear the line
+        # line_trajectory.set_data([], [])  # Clear the line
+        # line_train_loss.set_data([], [])  # Clear the line
+        # line_test_loss.set_data([], [])  # Clear the line
 
-        return line_trajectory, line_train_loss, line_test_loss
+        return []
 
 
     def updateTrajectory(epoch):
@@ -248,26 +270,38 @@ if run_from_file:
 
     def updateLosses(frame):
 
-        line_test_loss.set_data(epochs[:frame], loss_test[:frame])
-        line_train_loss.set_data(epochs[:frame], loss_train[:frame])
+        lines_to_return = []
 
+        # If not fuel metric, display total loss
+        if not fuel_metric:
+            line_test_loss.set_data(epochs[:frame], loss_test[:frame])
+            line_train_loss.set_data(epochs[:frame], loss_train[:frame])
+            lines_to_return.append(line_test_loss)
+            lines_to_return.append(line_train_loss)
+
+        # Plot individual losses
         for i, line in enumerate(iloss_lines):
             line.set_data(epochs[:frame], iloss_train[:frame, i])
 
+        # Plot vertical line if learning rate changes
         if lr[frame] != lr[frame - 1] and frame > 0:
             for ax in np.array(axes)[1:]:
                 vertical_line = ax.axvline(x=epochs[frame], color='k', linestyle = '--')  # Adjust the color as needed
                 vertical_lines.append(vertical_line)
 
-        return [line_test_loss, line_train_loss, *iloss_lines, *vertical_lines]
+        return [*lines_to_return, *iloss_lines, *vertical_lines]
 
     def updateMetric(frame):
 
-
+        # Update positino and velocity metrics
         line_x_metric.set_data(epochs[:frame], metrics[:frame,0])
         line_v_metric.set_data(epochs[:frame], metrics[:frame,1])
-
         lines_to_return = [line_x_metric, line_v_metric]
+
+        # Update fuel metric
+        if fuel_metric:
+            line_fuel.set_data(epochs[:frame], metrics[:frame,i_fuel])
+            lines_to_return.append(line_fuel)
 
         return lines_to_return
 
