@@ -4,6 +4,10 @@
 import numpy as np
 
 def NDcartesian_to_radial(states, config):
+    '''
+    THIS IS INCORRECT
+    '''
+
     cartesian = np.zeros(states.shape)
     cartesian[..., 0] = states[..., 0]
 
@@ -11,7 +15,7 @@ def NDcartesian_to_radial(states, config):
     y = states[..., 2]
 
     r = np.sqrt(x**2 + y**2)
-    thetas = np.arctan(y/x)
+    thetas = np.arctan(y/x) #[WARNING] MOST LIKELY THIS IS IS INCORRECT
 
     rotations = np.array([[[np.cos(theta), np.sin(theta)],
                            [-np.sin(theta),  np.cos(theta)]] for theta in thetas])
