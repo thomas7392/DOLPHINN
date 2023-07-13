@@ -18,91 +18,7 @@ from tudatpy.kernel import constants
 from tudatpy.util import result2array
 from tudatpy.kernel.math import interpolators
 
-# Temporaray custom verification
-current_path = os.path.dirname(os.path.abspath(__file__))
-space_hnn_path = os.path.join(current_path, '../../space_hnn')
-sys.path.append(space_hnn_path)
-from TwoBodyProblem import TwoBodyProblem
-
 spice.load_standard_kernels()
-
-class VerificationCustom:
-    '''
-    Temporary solution for creating a verification solution by
-    numerical integration.
-    '''
-
-    def __init__(self, DOLPHINN):
-
-        self.verbose = DOLPHINN.base_verbose
-
-        if self.verbose:
-            print("[DOLPHINN] Setting up the custom verification simulation")
-
-        # Potentially define control profile
-        if DOLPHINN.dynamics.control:
-            if self.verbose:
-                print("[DOLPHINN] Guidance is internal!")
-            control_interpolation = CubicSpline(DOLPHINN.states['NDcartesian'][:,0],
-                                                DOLPHINN.states['NDcartesian'][:,-DOLPHINN.dynamics.control_entries:])
-            control_profile = lambda t: control_interpolation(t)
-        else:
-            control_profile = None
-
-
-
-        # Integrate benchmrk solution using ND cartesian coordinates
-        self.verification = TwoBodyProblem(DOLPHINN.data['m'],
-                                           DOLPHINN.data['mu'],
-                                           thrust_profile = control_profile,
-                                           t_ref = DOLPHINN.data['time_scale'],
-                                           r_ref = DOLPHINN.data['length_scale'])
-
-        # Set initial state
-        if DOLPHINN.dynamics.control:
-            self.verification.set_initial_condition(DOLPHINN.states['NDcartesian'][0,0],
-                                                    DOLPHINN.states['NDcartesian'][0,1:-DOLPHINN.dynamics.control_entries],
-                                                    "cartesian2",
-                                                    y0_all_coordinates = False)
-        else:
-            self.verification.set_initial_condition(DOLPHINN.states['NDcartesian'][0,0],
-                                        DOLPHINN.states['NDcartesian'][0,1:],
-                                        "cartesian2",
-                                        y0_all_coordinates = False)
-
-        # Integrate using variable step size integrator
-        self.verification.integrate("dop853",
-                                    DOLPHINN.states['NDcartesian'][-1,0],
-                                    "cartesian2",
-                                    rtol = 1e-10,
-                                    atol = 1e-10,
-                                    verbose = False)
-
-        # Create verification solution at time of NN test
-        states_cs = CubicSpline(self.verification.states['cartesian2'][:,0],
-                                self.verification.states['cartesian2'][:,1:])
-        states_at_times = states_cs(DOLPHINN.states['NDcartesian'][:,0])
-
-        # Add the control entries to the states to resamble shape of NN produced states
-        if DOLPHINN.dynamics.control:
-            states_at_times = np.concatenate((DOLPHINN.states['NDcartesian'][:,0:1],
-                                              states_at_times,
-                                              DOLPHINN.states['NDcartesian'][:,-DOLPHINN.dynamics.control_entries:]),
-                                              axis = 1)
-        else:
-            states_at_times = np.concatenate((DOLPHINN.states['NDcartesian'][:,0:1],
-                                            states_at_times),
-                                            axis = 1)
-
-        self.states = {"NDcartesian": states_at_times}
-
-
-    def calculate_coordinates(self, coordinates, config):
-
-        transformation = getattr(coordinate_transformations, f"NDcartesian_to_{coordinates}")
-        self.states[coordinates] = transformation(self.states['NDcartesian'], config)
-
-
 
 class LowThrustGuidance:
     '''
@@ -190,8 +106,6 @@ class Verification:
                  isp=None,
                  central_body = "Sun",
                  control_nodes = None,
-                 dolphinn_control_law = None,
-                 original_coordinates = "cartesian",
                  verbose = True,
                  ref_times = None,
                  mass_rate = False):
@@ -452,7 +366,6 @@ class Verification:
                     isp = isp,
                     central_body = central_body,
                     control_nodes = control_nodes,
-                    original_coordinates = coordinates,
                     ref_times = cartesian_states[:,0],
                     verbose = verbose,
                     mass_rate = mass_rate)
