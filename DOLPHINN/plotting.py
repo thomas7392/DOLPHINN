@@ -46,7 +46,7 @@ def plot_loss(case,
         axes[2].set_title("Objective Loss Zoom-In", fontsize = 20)
         axes[2].plot(steps[steps > 10000], np.array(loss_train)[steps > 10000,-1], label = "Train")
         axes[2].plot(steps[steps > 10000], np.array(loss_test)[steps > 10000,-1],
-                    label = f"Test\nFinal Fuel mass = {np.round(loss_test[-1, -1]/oweigth, 2)} kg")
+                    label = f"Test")
         #axes[2].set_yscale("log")
 
     axes[0].set_yscale("log")
@@ -75,7 +75,8 @@ def plot_transfer(case,
                   N_arrows = 50,
                   r_target = 1.5,
                   r_start = 1,
-                  lim = None):
+                  lim = None,
+                  grid = False):
 
     # Retrieve relevant data from the DOLPHINN class instance
 
@@ -143,6 +144,9 @@ def plot_transfer(case,
     plt.ylabel("y [A.U.]", fontsize=20)
     ax.set_aspect('equal', adjustable='box')
 
+    if grid:
+        ax.grid()
+
     for axis in ['top','bottom','left','right']:
         ax.spines[axis].set_linewidth(1.5)
     ax.tick_params(labelsize=16)
@@ -203,7 +207,7 @@ def plot_coordinates(DOLPHINN,
             if custom_labels:
                 axes[i, 0].set_ylabel(custom_labels[i] , fontsize = 16)
             else:
-                axes[i, 0].set_ylabel(f"$x_{i+1}$" , fontsize = 16)
+                axes[i, 0].set_ylabel(DOLPHINN.dynamics.entry_labels[i], fontsize = 16)
         axes[i, 0].set_xlabel("Time [-]", fontsize = 16)
 
         for i in range(DOLPHINN.dynamics.control_entries):
@@ -223,7 +227,7 @@ def plot_coordinates(DOLPHINN,
             if custom_labels:
                 axes[i].set_ylabel(custom_labels[i] , fontsize = 16)
             else:
-                axes[i].set_ylabel(f"$x_{i+1}$" , fontsize = 16)
+                axes[i].set_ylabel(DOLPHINN.dynamics.entry_labels[i] , fontsize = 16)
         axes[i].set_xlabel("Time [-]", fontsize = 16)
 
     for ax in axes.flat:
@@ -329,4 +333,40 @@ def compare_mass(case):
         ax.tick_params(axis="both", direction="in", which="both", length=4, width = 1.2)
         ax.tick_params(bottom=True, top=True, left=True, right=True)
 
+
+def plot_metrics(problem):
+
+
+    fig, axes = plt.subplots(len(problem.metrics), 1,
+                             figsize = (8, 2*len(problem.metrics)),
+                             sharex = True)
+
+    fig.subplots_adjust(hspace=0.1)
+    fig.suptitle("Metrics vs Iterations", fontsize = 18, y = 0.95)
+
+    metrics_test = np.array(problem.metrics_test)
+    for i, ax in enumerate(axes):
+        metric_name = problem.metrics[i].__self__.__class__.__name__
+        metric_values = metrics_test[:,i]
+
+        if metric_name == "FinalDm":
+            metric_values = np.abs(metric_values)
+
+        ax.plot(problem.steps,
+                metric_values,
+                label = f"Final value: {np.round(metrics_test[-1,i], 4)}")
+        ax.set_ylabel(metric_name, fontsize = 14)
+
+    axes[-1].set_xlabel("Epoch [-]", fontsize = 14)
+
+    for i, ax in enumerate(axes):
+        metric_name = problem.metrics[i].__self__.__class__.__name__
+        if metric_name not in ['Fuel', 'FinalRadius']:
+            ax.set_yscale("log")
+        ax.legend()
+        for axis in ['top','bottom','left','right']:
+            ax.spines[axis].set_linewidth(1.2)
+        ax.tick_params(labelsize=13)
+        ax.tick_params(axis="both",direction="in",which="both", length=4, width = 1.2)
+        ax.tick_params(bottom=True, top=True, left=True, right=True)
 
