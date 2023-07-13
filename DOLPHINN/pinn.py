@@ -3,13 +3,10 @@
 
 # General imports
 import os
-import sys
 import numpy as np
 import datetime
 import json
 import time
-
-from scipy.interpolate import CubicSpline
 
 # DeepXDE Imports
 import deepxde as dde
@@ -28,16 +25,6 @@ from . import metrics
 
 from .function import Function
 from .ObjectivePINN import ObjectivePINN
-
-#Get the absolute path of the current scriptf
-# space_hnn_path = "C:\Users\thoma\Documents\Master_Space_Exploration\Thesis_Space\space_hnn"
-# sys.path.append(space_hnn_path)
-
-current_path = os.path.dirname(os.path.abspath(__file__))
-space_hnn_path = os.path.join(current_path, '../../space_hnn')
-sys.path.append(space_hnn_path)
-
-from TwoBodyProblem import TwoBodyProblem
 
 
 class DOLPHINN:
@@ -169,6 +156,7 @@ class DOLPHINN:
         test_path = path + "test.dat"
         loss_path = path + "loss.dat"
 
+        # Search weights path
         files = os.listdir(path)
         for file in files:
             if file[-5:] == "index":
@@ -219,19 +207,19 @@ class DOLPHINN:
 
         # Check if functions exist
         if config["dynamics"] and not hasattr(dynamics, config["dynamics"]):
-            raise ValueError(f"Dynamnics function {config[function]} is not\
+            raise ValueError(f"[DOLPHINN] Dynamnics function {config[function]} is not\
                              implemented in DOLPHINN.dynamics")
 
         if config["input_transform"] and not hasattr(input_layers, config["input_transform"]):
-            raise ValueError(f"Input_transform function {config[function]} is not\
+            raise ValueError(f"[DOLPHINN] Input_transform function {config[function]} is not\
                              implemented in DOLPHINN.input_layer")
 
         if config["output_transform"] and not hasattr(output_layers, config["output_transform"]):
-            raise ValueError(f"Output_transform function {config[function]} is not\
+            raise ValueError(f"[DOLPHINN] Output_transform function {config[function]} is not\
                              implemented in DOLPHINN.output_layers")
 
         if config["objective"] and not hasattr(objectives, config["objective"]):
-            raise ValueError(f"Output_transform function {config[function]} is not\
+            raise ValueError(f"[DOLPHINN] Output_transform function {config[function]} is not\
                              implemented in DOLPHINN.objectives")
 
         # Create data dictionary
@@ -264,8 +252,7 @@ class DOLPHINN:
             seed = None
 
         if train and solution:
-            raise ValueError("Train is requested and solution is provided: choose one")
-
+            raise ValueError("[DOLPHINN] Train is requested and solution is provided: choose one")
 
         if verbose:
             print(f"[DOLPHINN] Config file succesfully parsed. Initializing DOLPHINN with:")
@@ -304,7 +291,7 @@ class DOLPHINN:
         if hasattr(self, "config"):
             self.config['seed'] = seed
 
-        # Build the network from the config dictionary
+        # Build the network
         geom = dde.geometry.TimeDomain(self.data['t0'], self.data['tfinal'])
 
         data = dde.data.PDE(geom,
@@ -396,7 +383,7 @@ class DOLPHINN:
                                     np.array(self.model.losshistory.loss_train),
                                     np.array(self.model.losshistory.loss_test),
                                     np.array(self.model.losshistory.steps),
-                                    self.model.losshistory.metrics_test)
+                                    np.array(self.model.losshistory.metrics_test))
 
     def _create_states_and_loss(self,
                                 time,
@@ -423,7 +410,7 @@ class DOLPHINN:
             best_y = best_y[:,:-1]
 
         # Retrieve theta if radial coordinates, then add time and initial state
-        if self.dynamics.coordinates == "radial":
+        if self.dynamics.coordinates == "radial" and not self.dynamics.theta:
             theta = utils.integrate_theta(time[:,0],
                                           best_y)
             states = np.concatenate((time, best_y[:,0:1], theta.reshape(-1, 1), best_y[:,1:]), axis = 1)
@@ -561,7 +548,39 @@ class DOLPHINN:
         self.bench.integrate()
         self.bench.calculate_coordinates("NDcartesian", self.config)
 
+    def print_config(self):
+        utils.print_config(self.config)
 
-    def verify_custom(self):
 
-        self.bench = verification.VerificationCustom(self)
+    def print_metrics(self, additional_metrics = []):
+
+        metrics_to_print = self.metrics
+
+        if len(additional_metrics) != 0 and self.old_solution:
+            raise Exception("[DOLPHINN] Can't include new metrics in old solution.")
+
+        for m in additional_metrics:
+
+            if isinstance(m, str):
+                m = getattr(metrics, m)
+            elif issubclass(m, metrics.Metric):
+                pass
+            else:
+                raise TypeError(f"[DOLPHINN] Metric {m} is of wrong type, should be str of DOLPHINN.metrics.Metric")
+
+            metrics_to_print.append(m(self))
+
+        if len(metrics_to_print):
+            print("---- Metrics ----")
+        else:
+            print("[DOLPHINN] No metrics to print")
+
+        for m in metrics_to_print:
+            name = m.__class__.__name__
+            print(f"{name.ljust(30)} {m.call(self.model.train_state)}")
+
+
+
+
+
+
