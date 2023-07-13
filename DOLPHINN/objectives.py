@@ -31,9 +31,26 @@ class OptimalFinalMass(Objective):
         Requires a whole batch of input/output pairs.
         '''
         if self.mass_included:
-            return y[-1, -1]
+            return 1/y[-1,-1]
         else:
             raise Exception("[DOLPHINN] Optimal final mass objective is selected, but mass is not propagated")
+
+class MaximumRadius(Objective):
+
+    def __init__(self,
+                data,
+                mass_included):
+
+        super().__init__(data, mass_included)
+
+    def call(self, t, y, losses):
+        '''
+        Calculate consumed mass by integrating the thrust profile.
+        Requires a whole batch of input/output pairs.
+        '''
+
+        return 1/y[-1,0]
+
 
 
 class OptimalFuel(Objective):
