@@ -27,6 +27,9 @@ def get_dynamics_info_from_config(config):
     if config['mu'] < 4e14 and config['mu'] > 3.9e14:
         central_body = "Earth"
 
+    if config['mu'] < 5e12 and config['mu'] > 4.8e12:
+        central_body = "Moon"
+
     class_object = getattr(dynamics, config['dynamics'])
     control = class_object.control
     entries = class_object.entries
