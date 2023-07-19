@@ -45,8 +45,7 @@ class MaximumRadius(Objective):
 
     def call(self, t, y, losses):
         '''
-        Calculate consumed mass by integrating the thrust profile.
-        Requires a whole batch of input/output pairs.
+        Return inverse of final radius 
         '''
 
         return 1/y[-1,0]
