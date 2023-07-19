@@ -18,7 +18,7 @@ from DOLPHINN.coordinate_transformations import radial_to_NDcartesian
 #from utils import integrate_theta
 
 run_from_file = True
-base_path = "../Data/Optimisation/LVLHm_fuel/case10/"
+base_path = "../Data/Optimisation/LVLHm_fuel/case13/"
 coordinates = "radial"
 fuel_metric = True
 
