@@ -11,7 +11,6 @@ from .function import Function
 
 class Objective(Function):
 
-
     def __init__(self, data, mass_included):
         self._entries = len(data['initial_state'])
         self.mass_included = mass_included
@@ -45,7 +44,7 @@ class MaximumRadius(Objective):
 
     def call(self, t, y, losses):
         '''
-        Return inverse of final radius 
+        Return inverse of final radius
         '''
 
         return 1/y[-1,0]
