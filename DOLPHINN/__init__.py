@@ -30,7 +30,7 @@ from .output_layers import (InitialStateLayer,
                            InitialFinalStateLayer_RadialTheta_tanh_mass)
 
 from .pinn import DOLPHINN
-from .plotting import (plot_coordinates, plot_loss, plot_metrics, plot_transfer, compare, compare_mass)
+#from .plotting import (plot_coordinates, plot_loss, plot_metrics, plot_transfer, compare, compare_mass)
 from .training import (Scheduler, Restarter, Restorer)
 
 from .utils import (get_dynamics_info_from_config,
