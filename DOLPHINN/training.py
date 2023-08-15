@@ -41,13 +41,15 @@ class Restarter(Function):
                  schedule,
                  loss_threshold = 10,
                  max_attempts = 50,
-                 loss_weigths = None):
+                 loss_weigths = None,
+                 attempts = None):
 
         self.name = "Restarter"
         self.schedule = schedule
         self.loss_threshold = loss_threshold
         self.max_attempts = max_attempts
         self.loss_weigths = loss_weigths
+        self.attempts = attempts
 
         super().__init__({})
 
@@ -84,6 +86,7 @@ class Restarter(Function):
             temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
 
 
+        self.attempts = attempt - 1
 
 class Restorer(Function):
 
@@ -120,3 +123,36 @@ class Restorer(Function):
         print("[DOLPHINN] Finished Restorer training algorithm: best ")
 
 
+class LBFGS(Function):
+
+    def __init__(self,
+                 schedule,
+                 loss_weigths = None):
+
+        self.name = "LBFGS"
+        self.schedule = schedule
+        self.loss_weigths = loss_weigths
+        super().__init__({})
+
+
+    def call(self,
+             DOLPHINN,
+             additional_callbacks = []):
+
+        # Create savebest callback
+        total_iterations = np.sum(np.array([x for _, x in self.schedule]))
+        savebest_callback = SaveBest(total_iterations, verbose = True)
+
+        # Call the scheduler
+        training_schedule = Scheduler(self.schedule, self.loss_weigths)
+        training_schedule.call(DOLPHINN, additional_callbacks=[savebest_callback, *additional_callbacks])
+
+        # Restore best
+        DOLPHINN.restore(savebest_callback.weigths_path)
+
+        if DOLPHINN.base_verbose:
+            print(f"[DOLPHINN] Restored model from: {savebest_callback.weigths_path}")
+
+        savebest_callback.delete_directory_contents()
+
+        print("[DOLPHINN] Finished Restorer training algorithm: best ")
