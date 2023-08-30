@@ -15,7 +15,7 @@ def NDcartesian_to_radial(states, config):
     y = states[..., 2]
 
     r = np.sqrt(x**2 + y**2)
-    thetas = np.arctan(y/x) #[WARNING] MOST LIKELY THIS IS IS INCORRECT
+    thetas = np.where(np.arctan2(y, x)<0, np.arctan2(y, x)+2*np.pi, np.arctan2(y, x))
 
     rotations = np.array([[[np.cos(theta), np.sin(theta)],
                            [-np.sin(theta),  np.cos(theta)]] for theta in thetas])
