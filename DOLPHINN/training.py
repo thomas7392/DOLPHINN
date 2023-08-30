@@ -35,6 +35,84 @@ class Scheduler(Function):
                                         display_every = DOLPHINN.display_every)
 
 
+class DoubleRestarter(Function):
+
+    def __init__(self,
+                 schedule1,
+                 schedule2,
+                 loss_threshold = 10,
+                 max_attempts = 50,
+                 loss_weigths = None,
+                 attempts1 = None,
+                 attempts2 = None):
+
+        self.name = "DoubleRestarter"
+        self.schedule1 = schedule1
+        self.schedule2 = schedule2
+        self.loss_threshold = loss_threshold
+        self.max_attempts = max_attempts
+        self.loss_weigths = loss_weigths
+        self.attempts1 = attempts1
+        self.attempts2 = attempts2
+
+        super().__init__({})
+
+
+    def call(self,
+             DOLPHINN,
+             additional_callbacks = []):
+
+        temp_final_test_loss = np.array([np.NAN])
+        temp_final_train_loss = np.array([np.NAN])
+
+        attempt2 = 1
+        while attempt2 == 1 or np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))) > 0.3:
+
+            attempt1 = 1
+            # Keep initalizing network untill condition is met
+            while attempt1 == 1 or np.sum(temp_final_test_loss) > self.loss_threshold:
+
+                if DOLPHINN.base_verbose:
+                    print(f"[RESTARTER] Initialisation attempt: {attempt1}")
+
+                # Initialize new network if not the first time
+                if attempt1>1 or attempt2>1:
+                    DOLPHINN._create_model(verbose = DOLPHINN.base_verbose)
+
+                # Perform schedule
+                training_schedule = Scheduler(self.schedule1, self.loss_weigths)
+                training_schedule.call(DOLPHINN, additional_callbacks=additional_callbacks)
+
+                attempt1 += 1
+                # Break if max attempts reached
+                if attempt1 == self.max_attempts+1:
+                    if DOLPHINN.base_verbose:
+                        print("[RESTARTER] Maximum amount of attempts reached, stopping the restarter")
+                    break
+
+                # Prepare next attempt
+                temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
+
+
+            self.attempts1 = attempt1 - 1
+
+            # Perform schedule
+            training_schedule = Scheduler(self.schedule2, self.loss_weigths)
+            training_schedule.call(DOLPHINN, additional_callbacks=additional_callbacks)
+
+            attempt2 += 1
+            if attempt2 == 4:
+                break
+
+            # Prepare next attempt
+            temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
+            temp_final_train_loss = DOLPHINN.model.losshistory.loss_train[-1]
+
+            if DOLPHINN.base_verbose:
+                print("[DOLPHINN] Test-Train Difference (log) = ", np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))))
+        self.attempts2 = attempt2 - 1
+
+
 class Restarter(Function):
 
     def __init__(self,
