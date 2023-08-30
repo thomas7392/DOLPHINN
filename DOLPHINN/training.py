@@ -41,6 +41,7 @@ class DoubleRestarter(Function):
                  schedule1,
                  schedule2,
                  loss_threshold = 10,
+                 loss_threshold2 = 0.2,
                  max_attempts = 50,
                  loss_weigths = None,
                  attempts1 = None,
@@ -50,6 +51,7 @@ class DoubleRestarter(Function):
         self.schedule1 = schedule1
         self.schedule2 = schedule2
         self.loss_threshold = loss_threshold
+        self.loss_threshold2 = loss_threshold2
         self.max_attempts = max_attempts
         self.loss_weigths = loss_weigths
         self.attempts1 = attempts1
@@ -66,7 +68,7 @@ class DoubleRestarter(Function):
         temp_final_train_loss = np.array([np.NAN])
 
         attempt2 = 1
-        while attempt2 == 1 or np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))) > 0.3:
+        while attempt2 == 1 or np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))) > self.loss_threshold2:
 
             attempt1 = 1
             # Keep initalizing network untill condition is met
