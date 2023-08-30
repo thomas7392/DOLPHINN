@@ -61,9 +61,19 @@ class Metric(ABC):
             times = train_state.X_test
             _states = train_state.y_pred_test
 
+            # If the mass is not a constant, take it from the calcualtes states
+            if 'm' in self.DOLPHINN.config:
+                initial_mass = self.DOLPHINN.config['m']
+            else:
+                initial_mass = _states[0, -1]
+
             # Strip mass if it is propagated
             if self.DOLPHINN.dynamics.mass:
                 self.DOLPHINN._masses_for_metric = _states[:,-1]
+                _states = _states[:,:-1]
+
+            # Strip the onn off value
+            if self.DOLPHINN.dynamics.on_off:
                 _states = _states[:,:-1]
 
             if self.coordinates == "radial" and not self.DOLPHINN.dynamics.theta:
@@ -76,6 +86,7 @@ class Metric(ABC):
             # Verifiy
             verification = Verification.from_config_states(states,
                                                            self.DOLPHINN.config,
+                                                           initial_mass,
                                                            verbose = False,
                                                            mass_rate = self.DOLPHINN.dynamics.mass)
             verification.integrate()
@@ -156,7 +167,7 @@ class FuelTUDAT(Metric):
 
         # Get the verification information
         _, _, _, verification_masses = self.run_verification(train_state)
-        return self.DOLPHINN.data['m'] - verification_masses[-1]
+        return self.verification_masses[0] - verification_masses[-1]
 
 
 class Fuel(Metric):
@@ -205,6 +216,16 @@ class FinalRadius(Metric):
         # Get the verification information
         states, _, _, _ = self.run_verification(train_state)
         return np.linalg.norm(states[-1,1:3])
+
+
+class FinalMass(Metric):
+
+    def call(self, train_state):
+
+        # Get the verification information
+        _, _, _, mass = self.run_verification(train_state)
+        return mass[-1]
+
 
 
 
