@@ -111,6 +111,8 @@ class DOLPHINN:
         self.old_solution = True if solution else False
         self.display_every = display_every
         self.full_train_time = 0
+        self.mass = None
+
 
         self._create_model(seed = seed, verbose = self.base_verbose)
         self._create_config()
@@ -416,6 +418,10 @@ class DOLPHINN:
             states = np.concatenate((time, best_y[:,0:1], theta.reshape(-1, 1), best_y[:,1:]), axis = 1)
         else:
             states = np.concatenate((time, best_y), axis = 1)
+
+        # If on/off structure, strip the onn off entry
+        if self.dynamics.on_off:
+            states = states[:,:-1]
 
         # Create state attribute
         self.states = {self.dynamics.coordinates: states}
