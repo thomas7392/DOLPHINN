@@ -321,6 +321,7 @@ class Verification:
     def from_config_states(cls,
                            states,
                            config,
+                           initial_mass,
                            verbose = True,
                            mass_rate = False):
 
@@ -359,7 +360,7 @@ class Verification:
                                             np.array([[0]])),
                                             axis = 0).reshape(-1, 1)
 
-        return cls(config['m'],
+        return cls(initial_mass,
                     t0,
                     tfinal,
                     initial_state,
@@ -376,8 +377,14 @@ class Verification:
         Initialize from a DOLPHINN class instance
         '''
 
+        if 'm' in DOLPHINN.config:
+            initial_mass = DOLPHINN.config['m']
+        else:
+            initial_mass = DOLPHINN.mass[0,1]
+
         return cls.from_config_states(DOLPHINN.states,
                                       DOLPHINN.config,
+                                      initial_mass,
                                       verbose = DOLPHINN.base_verbose,
                                       mass_rate = DOLPHINN.dynamics.mass)
 
