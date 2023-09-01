@@ -68,11 +68,11 @@ class DoubleRestarter(Function):
         temp_final_train_loss = np.array([np.NAN])
 
         attempt2 = 1
-        while attempt2 == 1 or np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))) > self.loss_threshold2:
+        while np.any(np.isnan(temp_final_train_loss)) or np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))) > self.loss_threshold2:
 
             attempt1 = 1
             # Keep initalizing network untill condition is met
-            while attempt1 == 1 or np.sum(temp_final_test_loss) > self.loss_threshold:
+            while np.any(np.isnan(temp_final_test_loss)) or np.sum(temp_final_test_loss) > self.loss_threshold:
 
                 if DOLPHINN.base_verbose:
                     print(f"[RESTARTER] Initialisation attempt: {attempt1}")
