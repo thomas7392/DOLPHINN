@@ -64,21 +64,24 @@ class DoubleRestarter(Function):
              DOLPHINN,
              additional_callbacks = []):
 
-        temp_final_test_loss = np.array([np.NAN])
-        temp_final_train_loss = np.array([np.NAN])
+        temp_final_test_loss2 = np.array([np.NAN])
+        temp_final_train_loss2 = np.array([np.NAN])
 
         attempt2 = 1
-        while np.any(np.isnan(temp_final_train_loss)) or np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))) > self.loss_threshold2:
+        while np.any(np.isnan(temp_final_train_loss2)) or np.abs(np.log10(np.sum(temp_final_train_loss2)) - np.log10(np.sum(temp_final_test_loss2))) > self.loss_threshold2:
 
             attempt1 = 1
+            temp_final_test_loss1 = np.array([np.NAN])
             # Keep initalizing network untill condition is met
-            while np.any(np.isnan(temp_final_test_loss)) or np.sum(temp_final_test_loss) > self.loss_threshold:
+            while np.any(np.isnan(temp_final_test_loss1)) or np.sum(temp_final_test_loss1) > self.loss_threshold:
 
                 if DOLPHINN.base_verbose:
                     print(f"[RESTARTER] Initialisation attempt: {attempt1}")
 
                 # Initialize new network if not the first time
-                if attempt1>1 or attempt2>1:
+                if attempt1==1 and attempt2==1:
+                    pass
+                else:
                     DOLPHINN._create_model(verbose = DOLPHINN.base_verbose)
 
                 # Perform schedule
@@ -93,7 +96,7 @@ class DoubleRestarter(Function):
                     break
 
                 # Prepare next attempt
-                temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
+                temp_final_test_loss1 = DOLPHINN.model.losshistory.loss_test[-1]
 
 
             self.attempts1 = attempt1 - 1
@@ -107,11 +110,11 @@ class DoubleRestarter(Function):
                 break
 
             # Prepare next attempt
-            temp_final_test_loss = DOLPHINN.model.losshistory.loss_test[-1]
-            temp_final_train_loss = DOLPHINN.model.losshistory.loss_train[-1]
+            temp_final_test_loss2 = DOLPHINN.model.losshistory.loss_test[-1]
+            temp_final_train_loss2 = DOLPHINN.model.losshistory.loss_train[-1]
 
             if DOLPHINN.base_verbose:
-                print("[DOLPHINN] Test-Train Difference (log) = ", np.abs(np.log10(np.sum(temp_final_train_loss)) - np.log10(np.sum(temp_final_test_loss))))
+                print("[DOLPHINN] Test-Train Difference (log) = ", np.abs(np.log10(np.sum(temp_final_train_loss2)) - np.log10(np.sum(temp_final_test_loss2))))
         self.attempts2 = attempt2 - 1
 
 
