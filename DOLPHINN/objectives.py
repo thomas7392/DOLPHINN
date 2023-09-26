@@ -88,6 +88,43 @@ class OptimalFuel(Objective):
         return propellent_mass
 
 
+class OptimalFuelSquared(Objective):
+
+    def __init__(self,
+                 data,
+                 mass_included):
+
+        self._entries = len(data['initial_state'])
+
+        super().__init__(data, mass_included)
+
+    def call(self, t, y, losses):
+        '''
+        Calculate consumed mass by integrating the thrust profile.
+        Requires a whole batch of input/output pairs.
+        '''
+
+        # Get control and calculate norm
+        t = tf.reshape(t, (1, -1))[0] * self.time_scale
+
+        if self.mass_included:
+            U = y[:, self._entries:-1]
+        else:
+            U = y[:, self._entries:]
+
+        U_norm = tf.norm(U, axis=1)
+
+        # Sort time and control
+        idx = tf.argsort(t)
+        t_sorted = tf.gather(t, idx)
+        U_norm_sorted = tf.gather(U_norm, idx)
+
+        # Propellent mass
+        propellent_mass = (1/self.isp/9.81) * tfp.math.trapz(U_norm_sorted, t_sorted)
+
+        return propellent_mass**2
+
+
 class OptimalTime(Objective):
 
     def __init__(self,

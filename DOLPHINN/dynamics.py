@@ -455,3 +455,76 @@ class TwoBodyProblemRadialThetaNonDimensionalControl2_mass(Function):
             dx3_dt    - RHS_x3,
             dm_dt     - RHS_m,
             ]
+
+
+
+class TwoBodyProblemNonDimensionalControl_mass(Function):
+    '''
+    Equations of motion for the two body problem in non-dimensional units,
+    including a control term. Time has been scaled with time_scale and position
+    with length_scale. Function is used by DeepXDE to construct the Dynamics
+    loss term of a PINN
+
+    State entries: [x, y, v_x, v_y, u_x, u_y]
+
+    Args:
+        x (tf.tensor): Network input, time
+        y (tf.tensor): Network prediction, position, velocity
+
+    Returns:
+        loss (list): Residial of the individual equations of motion
+    '''
+    theta = False
+    control = True
+    mass = True
+    entries = 6
+    control_entries = 2
+    loss_entries = 5
+    coordinates = 'NDcartesian'
+    loss_labels = ["x", "y", "v$_x$", "v$_y$", "m"]
+    entry_labels = ["x", "y", "v$_x$", "v$_y$", "u$_x$", "u$_y$" ]
+    on_off = False
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def call(self, x, y):
+
+        # Unpack tensors
+        x_tens  = y[:, 0:1]
+        y_tens  = y[:, 1:2]
+        vx_tens = y[:, 2:3]
+        vy_tens = y[:, 3:4]
+
+        ux_tens = y[:, 4:5]
+        uy_tens = y[:, 5:6]
+
+        m       = y[:, 6:7]
+
+        T = tf.reshape(tf.norm(y[:, 4:6], axis = 1), (-1, 1))
+
+        r = tf.reshape(tf.norm(y[:, 0:2], axis = 1), (-1, 1))
+
+        # Automatic differentation
+        dx_dt = dde.grad.jacobian(y, x, i=0)
+        dy_dt = dde.grad.jacobian(y, x, i=1)
+        dvx_dt = dde.grad.jacobian(y, x, i=2)
+        dvy_dt = dde.grad.jacobian(y, x, i=3)
+        dm_dt  = dde.grad.jacobian(y, x, i=6)
+
+        RHS_x = vx_tens
+        RHS_y  = vy_tens
+        RHS_vx  = - (self.mu * self.time_scale**2 / self.length_scale**3) * x_tens * r**(-3) +\
+              self.time_scale**2 / (self.length_scale*m) * ux_tens
+        RHS_vy  = - (self.mu * self.time_scale**2 / self.length_scale**3) * y_tens * r**(-3) +\
+              self.time_scale**2 / (self.length_scale*m) * uy_tens
+        RHS_m   = -T * self.time_scale / (self.isp * 9.81)
+
+        return [
+            dx_dt - RHS_x,
+            dy_dt - RHS_y,
+            dvx_dt - RHS_vx,
+            dvy_dt - RHS_vy,
+            dm_dt  - RHS_m,
+            ]
+

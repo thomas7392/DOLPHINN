@@ -405,6 +405,72 @@ class InitialFinalStateLayer_RadialTheta_tanh_mass(Function):
 
       return output
 
+class InitialFinalStateLayer_RadialTheta_sin_mass(Function):
+  '''
+  Radial Coordinates including theta
+  Initial state enforced
+  Final state enforced
+  Control in radial and tangentinal direction in N
+  Mass output in Kg
+  Control flight path angle activated with a tanh
+  '''
+  on_off = False
+
+  def __init__(self, data):
+
+      super().__init__(data)
+
+  def call(self, t, y):
+      '''
+      Mulitply the networks output with a time dependent function
+        which vanshises at t=0 and tfinal.
+      Mulitply initial state with a time dependent function
+        which vanshises at t>0.
+      Mulitply final state with a time dependent function
+        which vanshises at t<tfinal.
+      Transforms the control outputs
+      Transforms the mass output
+
+      Arguments:
+          t (tf.Tensor): network input (time)
+          y (tf.Tensor): last layers output
+
+      Returns:
+          output (tf.Tensor): This layers output
+
+      '''
+
+      f1 = tf.math.exp(-self.a*(t-self.t0))
+      f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
+      f3 = tf.math.exp(self.a*(t-self.tfinal))
+      f_mass = 1 - tf.math.exp(-self.a*(t-self.t0))
+
+      # Apply sigmoid to get in [0, 1], while keeping a non-zero derivative for training
+      u_norm = tf.math.sigmoid(y[:,4:5])
+      u_angle = tf.math.sin(y[:,5:6])
+      m = tf.math.sigmoid(y[:,6:7])
+      #theta = self.final_state[1]*tf.math.sigmoid(y[:,1:2])
+
+      # Rescale the U_R and the U_theta to their real values
+      u_norm = u_norm * self.umax
+      u_angle = u_angle * 2*np.pi
+      m =  m * self.m
+
+      # Transform the control to cartesian coordinates
+      ur = u_norm * tf.math.sin(u_angle)
+      ut = u_norm * tf.math.cos(u_angle)
+
+      output = tf.concat([f1*self.initial_state[0] + f2*y[:,0:1] + f3*self.final_state[0],
+                          f1*self.initial_state[1] + f2*y[:,1:2] + f3*self.final_state[1],
+                          f1*self.initial_state[2] + f2*y[:,2:3] + f3*self.final_state[2],
+                          f1*self.initial_state[3] + f2*y[:,3:4] + f3*self.final_state[3],
+                          ur,
+                          ut,
+                          self.m - f_mass * m], axis = 1
+                          )
+
+      return output
+
 
 
 class InitialFinalStateLayer_RadialTheta_tanh_mass2(Function):
@@ -542,3 +608,228 @@ class InitialFinalStateLayer_RadialTheta_tanh_mass3(Function):
 
       return output
 
+
+
+class InitialFinalStateLayer_Cartesian_tanh_mass(Function):
+  '''
+  Cartesian Coordinates
+  Initial state enforced
+  Final state enforced
+  Control in x and y in N
+  '''
+  on_off = False
+
+  def __init__(self, data):
+
+      super().__init__(data)
+
+  def call(self, t, y):
+      '''
+      Mulitply the networks output with a time dependent function
+        which vanshises at t=0 and tfinal.
+      Mulitply initial state with a time dependent function
+        which vanshises at t>0 and tfinal.
+      Mulitply final state with a time dependent function
+        which vanshises at t<tfinal and tfinal.
+
+      Arguments:
+          t (tf.Tensor): network input (time)
+          y (tf.Tensor): last layers output
+
+      Returns:
+          output (tf.Tensor): This layers output
+      '''
+
+      f1 = tf.math.exp(-self.a*(t-self.t0))
+      f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
+      f3 = tf.math.exp(self.a*(t-self.tfinal))
+      f_mass = 1 - tf.math.exp(-self.a*(t-self.t0))
+
+      # Apply sigmoid to get in [0, 1], while keeping a non-zero derivative for training
+      ur = tf.math.sigmoid(y[:,4:5])
+      ut = tf.math.tanh(y[:,5:6])
+      m  = tf.math.sigmoid(y[:,6:7])
+
+      # Rescale the U_R and the U_theta to their real values
+      ur = ur * self.umax
+      ut = ut * 2*np.pi
+      m =  m * self.m
+
+      # Transform the control to cartesian coordinates
+      ux = ur * tf.math.cos(ut)
+      uy = ur * tf.math.sin(ut)
+
+      output = tf.concat([f1*self.initial_state[0] + f2*y[:,0:1] + f3*self.final_state[0],
+                          f1*self.initial_state[1] + f2*y[:,1:2] + f3*self.final_state[1],
+                          f1*self.initial_state[2] + f2*y[:,2:3] + f3*self.final_state[2],
+                          f1*self.initial_state[3] + f2*y[:,3:4] + f3*self.final_state[3],
+                          ux,
+                          uy,
+                          self.m - f_mass * m], axis = 1
+                          )
+
+      return output
+
+
+
+class InitialFinalStateLayer_RadialCartesian_tanh_mass(Function):
+  '''
+  Radial Coordinates including theta
+  Initial state enforced
+  Final state enforced
+  Control in radial and tangentinal direction in N
+  Mass output in Kg
+  Control flight path angle activated with a tanh
+  '''
+
+  on_off = False
+
+  def __init__(self, data):
+
+      super().__init__(data)
+
+  def call(self, t, y):
+      '''
+      Mulitply the networks output with a time dependent function
+        which vanshises at t=0 and tfinal.
+      Mulitply initial state with a time dependent function
+        which vanshises at t>0.
+      Mulitply final state with a time dependent function
+        which vanshises at t<tfinal.
+      Transforms the control outputs
+      Transforms the mass output
+
+      Arguments:
+          t (tf.Tensor): network input (time)
+          y (tf.Tensor): last layers output
+
+      Returns:
+          output (tf.Tensor): This layers output
+
+      '''
+
+      # Assume the network produced polar coordinates
+      r = y[:,0:1]
+      theta = y[:,1:2]
+      vr = y[:,2:3]
+      vtheta = y[:,3:4]
+
+      # Convert to cartesian
+      vx = tf.cos(theta) * vr + tf.sin(theta) * vtheta
+      vy = -tf.sin(theta) * vr + tf.cos(theta) * vtheta
+      x1 = r*tf.cos(theta)
+      x2 = r*tf.sin(theta)
+
+      # Constraint equations
+      f1 = tf.math.exp(-self.a*(t-self.t0))
+      f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
+      f3 = tf.math.exp(self.a*(t-self.tfinal))
+      f_mass = 1 - tf.math.exp(-self.a*(t-self.t0))
+
+      # Control and mass: Apply sigmoid to get in [0, 1],
+      # while keeping a non-zero derivative for training
+      u_norm = tf.math.sigmoid(y[:,4:5])
+      u_angle = tf.math.tanh(y[:,5:6])
+      m = tf.math.sigmoid(y[:,6:7])
+
+      # Rescale the U_R, U_theta and mass to their real values
+      u_norm = u_norm * self.umax
+      u_angle = u_angle * 2*np.pi
+      m =  m * self.m
+
+      # Transform the control to the LVLH frame
+      ur = u_norm * tf.math.sin(u_angle)
+      ut = u_norm * tf.math.cos(u_angle)
+
+      # Transform the control to inertial frame
+      ux = tf.cos(theta) * ur + tf.sin(theta) * ur
+      uy = -tf.sin(theta) * ut + tf.cos(theta) * ut
+
+      output = tf.concat([f1*self.initial_state[0] + f2*x1 + f3*self.final_state[0],
+                          f1*self.initial_state[1] + f2*x2 + f3*self.final_state[1],
+                          f1*self.initial_state[2] + f2*vx + f3*self.final_state[2],
+                          f1*self.initial_state[3] + f2*vy + f3*self.final_state[3],
+                          ux,
+                          uy,
+                          self.m - f_mass * m], axis = 1
+                          )
+
+      return output
+
+class InitialFinalStateLayer_TranslatedRadial_tanh_mass(Function):
+  '''
+  Radial Coordinates including theta
+  Initial state enforced
+  Final state enforced
+  Control in radial and tangentinal direction in N
+  Mass output in Kg
+  Control flight path angle activated with a tanh
+  '''
+  on_off = False
+
+  def __init__(self, data):
+
+    super().__init__(data)
+
+  def call(self, t, y):
+    '''
+    Mulitply the networks output with a time dependent function
+    which vanshises at t=0 and tfinal.
+    Mulitply initial state with a time dependent function
+    which vanshises at t>0.
+    Mulitply final state with a time dependent function
+    which vanshises at t<tfinal.
+    Transforms the control outputs
+    Transforms the mass output
+
+    Arguments:
+      t (tf.Tensor): network input (time)
+      y (tf.Tensor): last layers output
+
+    Returns:
+      output (tf.Tensor): This layers output
+
+    '''
+
+    f1 = tf.math.exp(-self.a*(t-self.t0))
+    f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
+    f3 = tf.math.exp(self.a*(t-self.tfinal))
+    f_mass = 1 - tf.math.exp(-self.a*(t-self.t0))
+
+    r_prime      = y[:,0:1]
+    theta_prime  = y[:,1:2]
+
+    r_prime = f1*self.initial_state[0] + f2*r_prime + f3*self.final_state[0]
+    theta_prime = f1*self.initial_state[1] + f2*theta_prime + f3*self.final_state[1]
+
+    r = tf.math.sqrt(self.offset**2 + r_prime**2 - 2 * self.offset*r_prime*tf.math.cos(theta_prime))
+    theta = tf.math.acos(r**2 + self.offset**2 - r_prime**2 / (2 * self.offset*r))
+    mask = tf.math.less(theta_prime, 0)
+    pi = tf.constant([np.pi], dtype=tf.float32)
+    theta = tf.where(mask, theta + pi, theta)
+
+    # Apply sigmoid to get in [0, 1], while keeping a non-zero derivative for training
+    u_norm = tf.math.sigmoid(y[:,4:5])
+    u_angle = tf.math.tanh(y[:,5:6])
+    m = tf.math.sigmoid(y[:,6:7])
+    #theta = self.final_state[1]*tf.math.sigmoid(y[:,1:2])
+
+    # Rescale the U_R and the U_theta to their real values
+    u_norm = u_norm * self.umax
+    u_angle = u_angle * 2*np.pi
+    m =  m * self.m
+
+    # Transform the control to cartesian coordinates
+    ur = u_norm * tf.math.sin(u_angle)
+    ut = u_norm * tf.math.cos(u_angle)
+
+    output = tf.concat([r,
+                       theta,
+                       f1*self.initial_state[2] + f2*y[:,2:3] + f3*self.final_state[2],
+                       f1*self.initial_state[3] + f2*y[:,3:4] + f3*self.final_state[3],
+                       ur,
+                       ut,
+                       self.m - f_mass * m], axis = 1
+                      )
+
+    return output

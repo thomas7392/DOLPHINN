@@ -3,10 +3,21 @@
 
 import numpy as np
 
+def get_new_thetas(thetas):
+
+    revolutions = 0
+    new_thetas = np.copy(thetas)
+
+    for i in range(1, len(thetas)):
+
+        if thetas[i] < thetas[i-1]:
+            revolutions += 1
+
+        new_thetas[i] += revolutions*2*np.pi
+
+    return new_thetas
+
 def NDcartesian_to_radial(states, config):
-    '''
-    THIS IS INCORRECT
-    '''
 
     cartesian = np.zeros(states.shape)
     cartesian[..., 0] = states[..., 0]
@@ -21,7 +32,7 @@ def NDcartesian_to_radial(states, config):
                            [-np.sin(theta),  np.cos(theta)]] for theta in thetas])
 
     cartesian[..., 1] = r
-    cartesian[..., 2] = thetas
+    cartesian[..., 2] = get_new_thetas(thetas)
     cartesian[..., 3:5] = (rotations @ states[..., 3:5].reshape(len(states), 2, 1)).reshape(len(states), 2)
 
     # Concert the control term to cartesian
