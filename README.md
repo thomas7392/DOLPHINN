@@ -38,7 +38,7 @@ If you want to make personal alterations, your best option is to fork DOLPHINN a
 
 
 ## 2. The network design <a name="design"></a>
-![Alt text](Images/method_overview.png)
+![Alt Text](Images/method_overview.png)
 That network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
 
 $$\begin{bmatrix} \mathbf{z} \\ \mathbf{u} \end{bmatrix} = \begin{bmatrix} h\big(\mathcal{N}_{\mathbf{z}}(t, \bm{\theta})\big) \\ g\big(\mathcal{N}_{\mathbf{u}}(t, \bm{\theta})\big) \end{bmatrix} $$
