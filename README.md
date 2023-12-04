@@ -4,5 +4,3 @@ DeltaV-Optimal Low-thrust transfers by PHysics Informed Neural Network (DOLPHIN)
 
 Example of an Earth-Mars fuel-optimal low-thrust transfer, created as the dolphin is being trained:
 
-![Alt Text](Images/animation.gif)
-

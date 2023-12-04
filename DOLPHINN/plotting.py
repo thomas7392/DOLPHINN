@@ -75,6 +75,7 @@ def plot_transfer(case,
                   N_arrows = 50,
                   r_target = 1.5,
                   r_start = 1,
+                  theta_start = 0,
                   lim = None,
                   grid = False):
 
@@ -133,7 +134,7 @@ def plot_transfer(case,
         plt.text(-0.9*lim, 0.80*lim, f"Velocity scale: {scale} N")
 
     plt.plot(0, 0, 'yo', markersize = 10, label = "Sun")
-    plt.plot(1, 0, 'bo', markersize = 10, label = "Departure")
+    plt.plot(y[0,0],  y[0,1],  'bo', markersize = 10, label = "Departure")
     plt.plot(y[-1,0], y[-1,1], "go", markersize = 10, label = "Arrival")
 
     plt.xlim(-lim, lim)
@@ -335,7 +336,6 @@ def compare_mass(case):
 
 
 def plot_metrics(problem):
-
 
     fig, axes = plt.subplots(len(problem.metrics), 1,
                              figsize = (8, 2*len(problem.metrics)),
