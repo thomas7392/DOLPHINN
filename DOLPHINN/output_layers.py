@@ -670,7 +670,65 @@ class InitialFinalStateLayer_Cartesian_tanh_mass(Function):
 
       return output
 
+class InitialFinalStateLayer_Cartesian_sin_mass(Function):
+  '''
+  Cartesian Coordinates
+  Initial state enforced
+  Final state enforced
+  Control in x and y in N
+  '''
+  on_off = False
 
+  def __init__(self, data):
+
+      super().__init__(data)
+
+  def call(self, t, y):
+      '''
+      Mulitply the networks output with a time dependent function
+        which vanshises at t=0 and tfinal.
+      Mulitply initial state with a time dependent function
+        which vanshises at t>0 and tfinal.
+      Mulitply final state with a time dependent function
+        which vanshises at t<tfinal and tfinal.
+
+      Arguments:
+          t (tf.Tensor): network input (time)
+          y (tf.Tensor): last layers output
+
+      Returns:
+          output (tf.Tensor): This layers output
+      '''
+
+      f1 = tf.math.exp(-self.a*(t-self.t0))
+      f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
+      f3 = tf.math.exp(self.a*(t-self.tfinal))
+      f_mass = 1 - tf.math.exp(-self.a*(t-self.t0))
+
+      # Apply sigmoid to get in [0, 1], while keeping a non-zero derivative for training
+      ur = tf.math.sigmoid(y[:,4:5])
+      ut = tf.math.sin(y[:,5:6])
+      m  = tf.math.sigmoid(y[:,6:7])
+
+      # Rescale the U_R and the U_theta to their real values
+      ur = ur * self.umax
+      ut = ut * 2*np.pi
+      m =  m * self.m
+
+      # Transform the control to cartesian coordinates
+      ux = ur * tf.math.cos(ut)
+      uy = ur * tf.math.sin(ut)
+
+      output = tf.concat([f1*self.initial_state[0] + f2*y[:,0:1] + f3*self.final_state[0],
+                          f1*self.initial_state[1] + f2*y[:,1:2] + f3*self.final_state[1],
+                          f1*self.initial_state[2] + f2*y[:,2:3] + f3*self.final_state[2],
+                          f1*self.initial_state[3] + f2*y[:,3:4] + f3*self.final_state[3],
+                          ux,
+                          uy,
+                          self.m - f_mass * m], axis = 1
+                          )
+
+      return output
 
 class InitialFinalStateLayer_RadialCartesian_tanh_mass(Function):
   '''
@@ -833,3 +891,109 @@ class InitialFinalStateLayer_TranslatedRadial_tanh_mass(Function):
                       )
 
     return output
+
+
+class Rastrigin(Function):
+  '''
+  Verification function to optimise
+  '''
+  on_off = False
+
+  def __init__(self, data):
+
+    super().__init__(data)
+
+  def call(self, t, y):
+    '''
+    Mulitply the networks output with a time dependent function
+    which vanshises at the edges
+
+    Arguments:
+      t (tf.Tensor): network input (time)
+      y (tf.Tensor): last layers output
+
+    Returns:
+      output (tf.Tensor): This layers output
+
+    '''
+
+    # Unpack tensors
+    x1  = 5.12*tf.math.sin(y[:, 0:1])
+    x2  = 5.12*tf.math.sin(y[:, 1:2])
+    f_est_tens = y[:, 2:3]
+
+    output = tf.concat([y[:, 0:1],
+                        y[:, 1:2],
+                        f_est_tens
+                        ], axis = 1)
+
+    return output
+
+
+class Himmelblau(Function):
+  '''
+  Verification function to optimise
+  '''
+  on_off = False
+
+  def __init__(self, data):
+
+    super().__init__(data)
+
+  def call(self, t, y):
+    '''
+    Mulitply the networks output with a time dependent function
+    which vanshises at the edges
+
+    Arguments:
+      t (tf.Tensor): network input (time)
+      y (tf.Tensor): last layers output
+
+    Returns:
+      output (tf.Tensor): This layers output
+
+    '''
+
+    f1 = tf.math.exp(-self.a*(t-self.t0))
+    f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
+    f3 = tf.math.exp(self.a*(t-self.tfinal))
+
+    # Unpack tensors
+    x1  = y[:, 0:1]
+    x2  = y[:, 1:2]
+    f_est_tens = y[:, 2:3]
+
+    output = tf.concat([f1*(-6) + f2*x1 + f3*6,
+                        f1*(-6) + f2*x2 + f3*6,
+                        f_est_tens
+                        ], axis = 1)
+
+    return output
+
+class InitialStateLayer_linear(Function):
+    '''
+    Initial state enforced
+    '''
+    on_off = False
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def call(self, t, y):
+        '''
+        Mulitply the networks output with a time dependent function
+          which vanshises at t=0. Add the initial state.
+
+        Arguments:
+            t (tf.Tensor): network input (time)
+            y (tf.Tensor): last layers output
+
+        Returns:
+            output (tf.Tensor):  This layers output
+
+        '''
+        f = t
+        output = tf.concat([self.initial_state[i] + f*y[:,i:i+1] for i in range(len(self.initial_state))],
+                           axis = 1)
+
+        return output

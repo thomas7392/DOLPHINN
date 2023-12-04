@@ -108,7 +108,8 @@ class Verification:
                  control_nodes = None,
                  verbose = True,
                  ref_times = None,
-                 mass_rate = False):
+                 mass_rate = False,
+                 integrator = None):
         '''
         Standard initializer
         '''
@@ -203,13 +204,19 @@ class Verification:
         # Integration settings
         #============================
 
-        current_coefficient_set = propagation_setup.integrator.CoefficientSets.rkf_78
-        integrator_settings = propagation_setup.integrator.runge_kutta_variable_step_size(1.0,
-                                                                        current_coefficient_set,
-                                                                        1.0E-4,
-                                                                        np.inf,
-                                                                        1e-10,
-                                                                        1e-10)
+
+        if not integrator:
+            current_coefficient_set = propagation_setup.integrator.CoefficientSets.rkf_78
+            integrator_settings = propagation_setup.integrator.runge_kutta_variable_step_size(1.0,
+                                                                            current_coefficient_set,
+                                                                            1.0E-4,
+                                                                            np.inf,
+                                                                            1e-10,
+                                                                            1e-10)
+        else:
+            integrator_settings = integrator
+
+
         # Andd its ready to go!
         self.propagator_settings_translational = propagation_setup.propagator.translational(
                 central_bodies,
@@ -258,58 +265,64 @@ class Verification:
 
 
 
-    def integrate(self):
+    def integrate(self, interpolator_source = "scipy"):
 
         if self.verbose:
             print("[DOLPHINN] Start Integrating")
 
         start = time.time()
-        # Create simulation object and propagate the dynamics
+        # Propagate the dynamics
         self.dynamics_simulator = numerical_simulation.create_dynamics_simulator(
                             self.bodies, self.propagator_settings)
         end = time.time()
-
 
         if self.verbose:
             print(f"[DOLPHINN] Finished integrating in {np.round(end-start, 5)} s")
 
         # Unpack the tudat propagation
         state_history = self.dynamics_simulator.state_history
-        state_history_arr = result2array(state_history)
+        times = self.ref_times.reshape(-1, 1)
 
-        #Remove the mass from the state history
+        # Prepare correct interpolator
+        if interpolator_source == "tudat":
+            interpolator_object = interpolators.create_one_dimensional_vector_interpolator(state_history,  interpolators.lagrange_interpolation(8))
+            interpolator = lambda epoch: interpolator_object.interpolate(epoch)
+
+        elif interpolator_source == "scipy":
+            state_history_arr = result2array(state_history)
+            interpolator_object = CubicSpline(state_history_arr[:,0],
+                                    state_history_arr[:,1:])
+            interpolator = lambda epoch: interpolator_object(epoch)[0]
+        else:
+            raise ValueError("Unknown interpolator source, options are: tudat, scipy")
+
+        states = np.zeros((len(times), 7))
+
         if self.mass_rate:
-            state_history_arr = state_history_arr[:,:-1]
+            self.mass = np.zeros((len(times), 2))
 
-        # Interpolate the tudat solution
-        interpolator = CubicSpline(state_history_arr[:,0],
-                                   state_history_arr[:,1:])
+        for i, epoch in enumerate(times):
+            temp_state = interpolator(epoch)
+            states[i, 0] = epoch
 
-        # Get the states at the times of the NN tests
-        _time = self.ref_times.reshape(-1, 1)
-        _states = interpolator(_time)[:,0,:]
+            if self.mass_rate:
+                states[i, 1:7]  = temp_state[:6]
+                self.mass[i, 0] = epoch
+                self.mass[i, 1] = temp_state[6]
+            else:
+                states[i, 1:7] = temp_state
 
         # Remove the z axis
-        _states = np.delete(_states, 5, axis=1)
-        _states = np.delete(_states, 2, axis=1)
-
-        # Add the time column to the states
-        _states = np.concatenate((_time, _states), axis = 1)
+        states = np.delete(states, 6, axis=1)
+        states = np.delete(states, 3, axis=1)
 
         # potentially add the control to the states
         if self.control_nodes:
-            _control = np.array(list(self.control_nodes.values()))
-            _states = np.concatenate((_states, _control), axis = 1)
+            control = np.array(list(self.control_nodes.values()))
+            states = np.concatenate((states, control), axis = 1)
 
         # Create the states dictionary
-        self.states = {"cartesian": _states}
-
-        if self.mass_rate:
-            mass_history = self.dynamics_simulator.dependent_variable_history
-            _mass = result2array(mass_history)
-            _mass_interpolater = CubicSpline(_mass[:,0], _mass[:,1:2])
-            _mass = _mass_interpolater(_time)[:,0,:]
-            self.mass = np.concatenate((_time, _mass), axis = 1)
+        self.states = {"cartesian": states}
 
 
     def calculate_coordinates(self, coordinates, config):
@@ -323,7 +336,9 @@ class Verification:
                            config,
                            initial_mass,
                            verbose = True,
-                           mass_rate = False):
+                           mass_rate = False,
+                           integrator = None,
+                           tfinal = None):
 
         # Get the dynamics info
         central_body, _, entries,\
@@ -338,7 +353,9 @@ class Verification:
 
         # Define star and end
         t0       = cartesian_states[0,0]
-        tfinal   = cartesian_states[-1,0]
+
+        if not tfinal:
+            tfinal   = cartesian_states[-1,0]
 
         # Prepare control and initial state
         if control_entries:
@@ -369,10 +386,14 @@ class Verification:
                     control_nodes = control_nodes,
                     ref_times = cartesian_states[:,0],
                     verbose = verbose,
-                    mass_rate = mass_rate)
+                    mass_rate = mass_rate,
+                    integrator = integrator)
 
     @classmethod
-    def from_DOLPHINN(cls, DOLPHINN):
+    def from_DOLPHINN(cls,
+                      DOLPHINN,
+                      integrator = None,
+                      tfinal = None):
         '''
         Initialize from a DOLPHINN class instance
         '''
@@ -386,7 +407,9 @@ class Verification:
                                       DOLPHINN.config,
                                       initial_mass,
                                       verbose = DOLPHINN.base_verbose,
-                                      mass_rate = DOLPHINN.dynamics.mass)
+                                      mass_rate = DOLPHINN.dynamics.mass,
+                                      integrator = integrator,
+                                      tfinal = tfinal)
 
 
 

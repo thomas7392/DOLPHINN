@@ -149,3 +149,67 @@ class OptimalTime(Objective):
         sum_averages = tf.reduce_sum(column_averages)
 
         return sum_averages
+
+class Rastragin(Objective):
+
+    def __init__(self,
+                data,
+                mass_included):
+
+        super().__init__(data, mass_included)
+
+    def call(self, t, y, losses):
+        '''
+        Calculate consumed mass by integrating the thrust profile.
+        Requires a whole batch of input/output pairs.
+        '''
+
+        # Unpack tensors
+        x1  = y[0, 0]
+        x2  = y[0, 1]
+        A = 10
+
+        x1 -= self.x1_offset
+        x2 -= self.x2_offset
+
+        f = self.offset + A*2 + (x1**2 - A * tf.math.cos(2*np.pi * x1))\
+                + (x2**2 - A * tf.math.cos(2*np.pi * x2))
+
+        return f
+
+class Himmelblau(Objective):
+
+    def __init__(self,
+                data,
+                mass_included):
+
+        super().__init__(data, mass_included)
+
+    def call(self, t, y, losses):
+        '''
+        Calculate consumed mass by integrating the thrust profile.
+        Requires a whole batch of input/output pairs.
+        '''
+
+        # Unpack tensors
+        x1  = y[0, 0]
+        x2  = y[0, 1]
+
+        f = (x1**2 + x2 - 11)**2 + (x1 + x2**2 - 7)**2
+
+        return f
+
+class Rastragin2(Objective):
+
+    def __init__(self,
+                data,
+                mass_included):
+
+        super().__init__(data, mass_included)
+
+    def call(self, t, y, losses):
+        '''
+        Calculate consumed mass by integrating the thrust profile.
+        Requires a whole batch of input/output pairs.
+        '''
+        return y[0,-1]

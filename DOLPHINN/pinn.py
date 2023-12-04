@@ -294,7 +294,12 @@ class DOLPHINN:
             self.config['seed'] = seed
 
         # Build the network
-        geom = dde.geometry.TimeDomain(self.data['t0'], self.data['tfinal'])
+        if "sampler_std" in self.data:
+            std = self.data['sampler_std']
+        else:
+            std = 0.2 * (self.data['tfinal'] - self.data['t0'])/self.data['N_train']
+
+        geom = dde.geometry.TimeDomain(self.data['t0'], self.data['tfinal'], sampler_std = std)
 
         data = dde.data.PDE(geom,
                             self.dynamics.call,

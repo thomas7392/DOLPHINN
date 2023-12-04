@@ -2,6 +2,7 @@
 # DOLPHINN
 
 import numpy as np
+import tensorflow as tf
 
 from .function import Function
 from .callbacks import SaveBest
@@ -10,11 +11,15 @@ class Scheduler(Function):
 
     def __init__(self,
                  schedule,
-                 loss_weigths=None):
+                 loss_weigths=None,
+                 beta_1 = 0.9,
+                 beta_2 = 0.999):
 
         self.name = "Scheduler"
         self.schedule = schedule
         self.loss_weigths = loss_weigths
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
 
         super().__init__({})
 
@@ -25,7 +30,12 @@ class Scheduler(Function):
         for (lr, iterations) in self.schedule:
 
             DOLPHINN.current_lr = lr
-            DOLPHINN.model.compile("adam",
+
+            optimisation_alg = tf.keras.optimizers.Adam(learning_rate=lr,
+                                               beta_1 = self.beta_1,
+                                               beta_2 = self.beta_2)
+
+            DOLPHINN.model.compile(optimisation_alg,
                         lr = lr,
                         metrics = DOLPHINN.metrics,
                         loss_weights = self.loss_weigths)
