@@ -38,10 +38,12 @@ If you want to make personal alterations, your best option is to fork DOLPHINN a
 
 
 ## 2. The network design <a name="design"></a>
-![](Images/method_overview.png)
+![alt text](https://github.com/thomas7392/DOLPHINN/blob/main/Images/method_overview.png?raw=true)
 That network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
 
-$$\begin{bmatrix} \mathbf{z} \\ \mathbf{u} \end{bmatrix} = \begin{bmatrix} h\big(\mathcal{N}_{\mathbf{z}}(t, \bm{\theta})\big) \\ g\big(\mathcal{N}_{\mathbf{u}}(t, \bm{\theta})\big) \end{bmatrix} $$
+```math
+$$\begin{bmatrix} \mathbf{z} \\ \mathbf{u} \end{bmatrix} = \begin{bmatrix} h\big( \mathcal{N}_z (t, p) \big) \\  g\big( \mathcal{N}_u (t, p)\big) \end{bmatrix}$$
+```
 
 The design in the thesis includes boundary conditions analytically, through constraints layers $h(\mathcal{N}_z)$ (for the state constraints) and $g(\mathcal{N}_u)$ (for the control constraints). The network is trained through the Physics-Informed method, by using the dynamical constraints $\dot{\mathbf{x}} = f(t, \mathbf{z}, \mathbf{u})$ as the loss function.
 
