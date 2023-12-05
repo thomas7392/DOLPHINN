@@ -12,7 +12,6 @@ class InitialStateLayer(Function):
     '''
     Initial state enforced
     '''
-    on_off = False
 
     def __init__(self, data):
         super().__init__(data)
@@ -44,7 +43,6 @@ class InitialFinalStateLayer_Cartesian(Function):
     Final state enforced
     Control in x and y in N
     '''
-    on_off = False
 
     def __init__(self, data):
 
@@ -103,7 +101,6 @@ class InitialFinalStateLayer_Radial(Function):
     Control in radial and tangentinal direction in N
     Control flight path angle activated with a Sigmoid
     '''
-    on_off = False
 
     def __init__(self, data):
 
@@ -161,7 +158,6 @@ class InitialFinalStateLayer_Radial_tanh(Function):
     Control in radial and tangentinal direction in N
     Control flight path angle activated with a tanh
     '''
-    on_off = False
 
     def __init__(self, data):
 
@@ -219,7 +215,6 @@ class InitialFinalStateLayer_Radial_tanh_mass(Function):
     Mass output in Kg
     Control flight path angle activated with a tanh
     '''
-    on_off = False
 
     def __init__(self, data):
 
@@ -282,7 +277,6 @@ class InitialFinalStateLayer_Radial2_tanh_mass(Function):
   Control output in Newton, in radial and tangentinal direction
   Mass output in KG
   '''
-  on_off = False
 
   def __init__(self, data):
 
@@ -348,7 +342,6 @@ class InitialFinalStateLayer_RadialTheta_tanh_mass(Function):
   Mass output in Kg
   Control flight path angle activated with a tanh
   '''
-  on_off = False
 
   def __init__(self, data):
 
@@ -414,7 +407,6 @@ class InitialFinalStateLayer_RadialTheta_sin_mass(Function):
   Mass output in Kg
   Control flight path angle activated with a tanh
   '''
-  on_off = False
 
   def __init__(self, data):
 
@@ -482,7 +474,6 @@ class InitialFinalStateLayer_RadialTheta_tanh_mass2(Function):
   Mass output in Kg
   Control flight path angle activated with a tanh
   '''
-  on_off = False
 
   def __init__(self, data):
     super().__init__(data)
@@ -548,8 +539,6 @@ class InitialFinalStateLayer_RadialTheta_tanh_mass3(Function):
   Mass output in Kg
   Control flight path angle activated with a tanh
   '''
-
-  on_off = True
 
   def __init__(self, data):
 
@@ -617,7 +606,6 @@ class InitialFinalStateLayer_Cartesian_tanh_mass(Function):
   Final state enforced
   Control in x and y in N
   '''
-  on_off = False
 
   def __init__(self, data):
 
@@ -677,7 +665,6 @@ class InitialFinalStateLayer_Cartesian_sin_mass(Function):
   Final state enforced
   Control in x and y in N
   '''
-  on_off = False
 
   def __init__(self, data):
 
@@ -739,8 +726,6 @@ class InitialFinalStateLayer_RadialCartesian_tanh_mass(Function):
   Mass output in Kg
   Control flight path angle activated with a tanh
   '''
-
-  on_off = False
 
   def __init__(self, data):
 
@@ -823,7 +808,6 @@ class InitialFinalStateLayer_TranslatedRadial_tanh_mass(Function):
   Mass output in Kg
   Control flight path angle activated with a tanh
   '''
-  on_off = False
 
   def __init__(self, data):
 
@@ -893,88 +877,14 @@ class InitialFinalStateLayer_TranslatedRadial_tanh_mass(Function):
     return output
 
 
-class Rastrigin(Function):
-  '''
-  Verification function to optimise
-  '''
-  on_off = False
-
-  def __init__(self, data):
-
-    super().__init__(data)
-
-  def call(self, t, y):
-    '''
-    Mulitply the networks output with a time dependent function
-    which vanshises at the edges
-
-    Arguments:
-      t (tf.Tensor): network input (time)
-      y (tf.Tensor): last layers output
-
-    Returns:
-      output (tf.Tensor): This layers output
-
-    '''
-
-    # Unpack tensors
-    x1  = 5.12*tf.math.sin(y[:, 0:1])
-    x2  = 5.12*tf.math.sin(y[:, 1:2])
-    f_est_tens = y[:, 2:3]
-
-    output = tf.concat([y[:, 0:1],
-                        y[:, 1:2],
-                        f_est_tens
-                        ], axis = 1)
-
-    return output
 
 
-class Himmelblau(Function):
-  '''
-  Verification function to optimise
-  '''
-  on_off = False
 
-  def __init__(self, data):
-
-    super().__init__(data)
-
-  def call(self, t, y):
-    '''
-    Mulitply the networks output with a time dependent function
-    which vanshises at the edges
-
-    Arguments:
-      t (tf.Tensor): network input (time)
-      y (tf.Tensor): last layers output
-
-    Returns:
-      output (tf.Tensor): This layers output
-
-    '''
-
-    f1 = tf.math.exp(-self.a*(t-self.t0))
-    f2 = 1 - tf.math.exp(-self.a*(t-self.t0)) - tf.math.exp(self.a*(t - self.tfinal))
-    f3 = tf.math.exp(self.a*(t-self.tfinal))
-
-    # Unpack tensors
-    x1  = y[:, 0:1]
-    x2  = y[:, 1:2]
-    f_est_tens = y[:, 2:3]
-
-    output = tf.concat([f1*(-6) + f2*x1 + f3*6,
-                        f1*(-6) + f2*x2 + f3*6,
-                        f_est_tens
-                        ], axis = 1)
-
-    return output
 
 class InitialStateLayer_linear(Function):
     '''
     Initial state enforced
     '''
-    on_off = False
 
     def __init__(self, data):
         super().__init__(data)

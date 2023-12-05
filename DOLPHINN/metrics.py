@@ -72,9 +72,6 @@ class Metric(ABC):
                 self.DOLPHINN._masses_for_metric = _states[:,-1]
                 _states = _states[:,:-1]
 
-            # Strip the onn off value
-            if self.DOLPHINN.dynamics.on_off:
-                _states = _states[:,:-1]
 
             if self.coordinates == "radial" and not self.DOLPHINN.dynamics.theta:
                 theta = utils.integrate_theta(times[:,0],
