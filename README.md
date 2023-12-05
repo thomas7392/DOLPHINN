@@ -1,6 +1,6 @@
 # DOLPHINN
 
-Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master thesis (TU Delft) project](https://repository.tudelft.nl/islandora/object/uuid%3Abef00e5f-cab2-41e9-af8d-747d1e9284ea?collection=education). This code solves two-boundary-value continious optimal control problems by using an unsupervised Physics-Informed Neural Network as the latent solution. Find here a guide to install DOLPHINN and all its dependencies.
+Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master thesis (TU Delft) project](https://repository.tudelft.nl/islandora/object/uuid%3Abef00e5f-cab2-41e9-af8d-747d1e9284ea?collection=education). This code solves two-boundary-value continious optimal control problems by using an unsupervised Physics-Informed Neural Network as the latent solution. Below a guide to install DOLPHINN and its dependencies as wel as a simplified explenation of the method that DOLPHINN used to solve optimal control problems with the direct method.
 
 1. [Installation](#installation)
 2. [Network Design](#design)
@@ -11,7 +11,7 @@ Create a virtual anaconda environment with Python 3.10.
 
 `conda create -n "dolphinn-env" python=3.10`
 
-Install tudatpy.
+Install tudatpy, an astrodynamics tool used for verification of optimal control polices of spacecraft trajectories found by the DOLPHINN. 
 
 `conda install -c tudat-team tudatpy`
 
