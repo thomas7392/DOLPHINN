@@ -15,7 +15,7 @@ Install tudatpy, an astrodynamics tool used for verification of optimal control 
 
 `conda install -c tudat-team tudatpy`
 
-Install my fork of deepxde, that contains some minimal alterations compared to the original deepxde, which are required to run DOLPHINN. My version contains the perturbed equidistant sampler as well as the incorperations of an objective loss term. This is done by using the regularisation functionality, a bit of a loophole indeed.
+Install [my fork of deepxde](https://github.com/thomas7392/deepxde), a neural network module speciliased in Physics-Informed Neural Networks. The fork contains some minimal alterations compared to [the original deepxde](https://github.com/lululxvi/deepxde), which are required to run DOLPHINN. My version contains the perturbed equidistant sampler as well as the incorperations of an objective loss term. This is done by using the regularisation functionality, a bit of a loophole indeed.
 
 `pip install git+https://github.com/thomas7392/deepxde.git`
 
