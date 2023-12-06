@@ -305,7 +305,7 @@ class DOLPHINN:
                             self.dynamics.call,
                             [],
                             self.data['N_train'],
-                            self.data['N_boundary'],
+                            2,
                             num_test = self.data['N_test'],
                             train_distribution = self.data['sampler'])
 
@@ -429,10 +429,7 @@ class DOLPHINN:
 
         # Potentially convert states to Non-Dimensional Cartesian states
         if self.dynamics.coordinates != "NDcartesian":
-            transformation = getattr(coordinate_transformations,
-                                      f"{self.dynamics.coordinates}_to_NDcartesian")
-            self.states["NDcartesian"] = transformation(self.states[self.dynamics.coordinates],
-                                                        self.config)
+            self.calculate_coordinates("NDcartesian")
 
     def calculate_coordinates(self, coordinates):
 
