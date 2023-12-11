@@ -24,14 +24,12 @@ Install [my fork of deepxde](https://github.com/thomas7392/deepxde), a neural ne
 `pip install git+https://github.com/thomas7392/deepxde.git`
 
 
-Install Tensorflow 2.8.2
+Install Tensorflow 2.8.2 and Tensorflow probability 0.16.0
 
-`pip install tensorflow==2.8.2`
-
-Install Tensorflow probability 0.16.0
-
-`pip install tensorflow-probability==0.16.0`
-
+```
+pip install tensorflow==2.8.2
+pip install tensorflow-probability==0.16.0
+```
 
 #### Install DOLPHINN
 Now, finally, install the DOLPHINN package. If you purely want to use DOLPHINN as a python module and keep all functionality as it is here, do this:
