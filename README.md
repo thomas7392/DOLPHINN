@@ -64,8 +64,22 @@ Short tutorials for specific use cases:
 
 ## 3. Optimal Control Problem with DOLPHINN <a name="ocp"></a>
 
+Consider an optimal control problem 
+
+```math
+\begin{alignat}{2}
+\text{Minimize}\quad\,\, &J &&=  \Phi(\mathbf{z}_0, \mathbf{z}_f, t_0, t_f) + \int_{t_0}^{t_f} L(\mathbf{z}(t), \mathbf{u}(t))\, dt \\
+\text{Subject to}\quad\,\, &\dot{\mathbf{z}} &&= f(\mathbf{z}, \mathbf{u}, t) \quad \mathbf{z} \in \mathbb{R}^N, \mathbf{u} \in \mathbb{R}^Q, t \in [t_0, t_f]\\
+&\mathbf{z}(t_0) &&= \mathbf{z}_0\\
+&\mathbf{z}(t_f) &&= \mathbf{z}_f
+\end{alignat}
+```
+
+A neural network $\mathcal{N}$ is designated as the solution. 
+
 ![alt text](https://github.com/thomas7392/DOLPHINN/blob/main/Images/method_overview.png?raw=true)
-That network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
+
+The network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
 
 ```math
 $$\begin{bmatrix} \mathbf{z} \\ \mathbf{u} \end{bmatrix} = \begin{bmatrix} h\big( \mathcal{N}_z (t, p) \big) \\  g\big( \mathcal{N}_u (t, p)\big) \end{bmatrix}$$
