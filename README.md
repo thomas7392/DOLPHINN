@@ -17,7 +17,7 @@ conda create -n "dolphinn-env" python=3.10
 ```
 
 #### Dependencies
-Install tudatpy, an astrodynamics tool used for verification of optimal control policies of spacecraft trajectories found by the DOLPHINN.
+Install [tudatpy](https://docs.tudat.space/en/latest/), an astrodynamics tool used for verification of optimal control policies of spacecraft trajectories found by the DOLPHINN.
 
 ```
 conda install -c tudat-team tudatpy
