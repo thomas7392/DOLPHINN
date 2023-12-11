@@ -1,3 +1,6 @@
+# Thomas Goldman 2023
+# DOLPHINN
+
 import numpy as np
 
 from .function import Function

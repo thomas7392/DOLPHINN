@@ -3,15 +3,19 @@
 Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master thesis (TU Delft) project](https://repository.tudelft.nl/islandora/object/uuid%3Abef00e5f-cab2-41e9-af8d-747d1e9284ea?collection=education). This code solves two-boundary-value continious optimal control problems by using an unsupervised Physics-Informed Neural Network as the latent solution. Below a guide to install DOLPHINN and its dependencies as wel as a simplified explenation of the method that DOLPHINN used to solve optimal control problems with the direct method.
 
 1. [Installation](#installation)
-2. [Network Design](#design)
+2. [DOLPHINN overview](#design)
+2. [Optimal Control Problem with DOLPHINN](#ocp)
 3. [DOLPHINN advantages](#advantages)
 
 ## 1. Installation <a name="installation"></a>
+
+### Create a virtual environment
 Create a virtual anaconda environment with Python 3.10.
 
 `conda create -n "dolphinn-env" python=3.10`
 
-Install tudatpy, an astrodynamics tool used for verification of optimal control polices of spacecraft trajectories found by the DOLPHINN. 
+### Dependencies
+Install tudatpy, an astrodynamics tool used for verification of optimal control polices of spacecraft trajectories found by the DOLPHINN.
 
 `conda install -c tudat-team tudatpy`
 
@@ -28,6 +32,8 @@ Install Tensorflow probability 0.16.0
 
 `pip install tensorflow-probability==0.16.0`
 
+
+### Install DOLPHINN
 Now, finally, install the DOLPHINN package. If you purely want to use DOLPHINN as a python module and keep all functionality as it is here, do this:
 
 `pip install git+https://github.com/thomas7392/DOLPHINN.git`
@@ -36,8 +42,20 @@ If you want to make personal alterations, your best option is to fork DOLPHINN a
 
 `git clone git@github.com:your_username/DOLPHINN.git`
 
+## 2. The DOLPHINN code <a name="design"></a>
 
-## 2. The network design <a name="design"></a>
+A simplified overview of the workflow with `DOLPHINN` is the following diagram
+![Alt Text](Images/DOLPHINN_overview.png)
+
+An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](tutorials/earth_mars_low_thrust_transfer.ipynb).
+
+Short tutorials for specific use cases can be found here
+
+- [Earth-Mars optimal-fuel low-thrust transfer](tutorials/earth_mars_low_thrust_transfer_short.ipynb)
+- [Low Earth orbit propagation](tutorials/earth_circular_orbit_integration_short.ipynb)
+
+## 3. Optimal Control Problem with DOLPHINN <a name="ocp"></a>
+
 ![alt text](https://github.com/thomas7392/DOLPHINN/blob/main/Images/method_overview.png?raw=true)
 That network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
 
@@ -59,7 +77,7 @@ Example of an Earth-Mars fuel-optimal low-thrust transfer, created as the DOLPHI
 
 ![Alt Text](Images/animation.gif)
 
-## 3. DOLPHINN advantages <a name="advantages"></a>
+## 4. DOLPHINN advantages <a name="advantages"></a>
 
 Two reasons I made DOLPHINN the way it is:
 * The DOLPHINN package carufully stores the network configuration and training process. This allows to easily write the solution to disk, and upload the solution again into a DOLPHINN to analyse its outcome or continue training.

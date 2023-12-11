@@ -378,7 +378,7 @@ class DOLPHINN:
         training_time = end_train - start_train
         self.full_train_time += training_time
 
-        self._update_config(algorithm)
+        self._add_training_to_config(algorithm)
 
         if self.base_verbose:
             print(f'[DOLPHINN] This training {[alg.name for alg in algorithm]} took {np.round(training_time, 2)} s')
@@ -437,9 +437,7 @@ class DOLPHINN:
         transformation = getattr(coordinate_transformations, f"{existing_coordiantes}_to_{coordinates}")
         self.states[coordinates] = transformation(self.states[existing_coordiantes], self.config)
 
-
     def _upload_solution(self, solution):
-
 
         best_y_arr = solution[0]
         losshistory_arr = solution[1]
@@ -504,7 +502,7 @@ class DOLPHINN:
             print(f"[DOLPHINN] Restored weights at {path}")
 
 
-    def _update_config(self, algorithms):
+    def _add_training_to_config(self, algorithms):
         '''
         Update the configuration file with a training
         '''
@@ -530,9 +528,10 @@ class DOLPHINN:
                         "input_transform": self.input_transform.__class__.__name__,
                         }
 
+        # Metrics
         self.config.update({f"metric_{i+1}": metric.__self__.__class__.__name__ for i, metric in enumerate(self.metrics)})
 
-        # Include data
+        # Include data (constants/network configuration)
         self.config.update(self.data)
 
         # Transform np.arrays to lists for JSON
@@ -555,33 +554,6 @@ class DOLPHINN:
     def print_config(self):
         utils.print_config(self.config)
 
-
-    def print_metrics(self, additional_metrics = []):
-
-        metrics_to_print = self.metrics
-
-        if len(additional_metrics) != 0 and self.old_solution:
-            raise Exception("[DOLPHINN] Can't include new metrics in old solution.")
-
-        for m in additional_metrics:
-
-            if isinstance(m, str):
-                m = getattr(metrics, m)
-            elif issubclass(m, metrics.Metric):
-                pass
-            else:
-                raise TypeError(f"[DOLPHINN] Metric {m} is of wrong type, should be str of DOLPHINN.metrics.Metric")
-
-            metrics_to_print.append(m(self))
-
-        if len(metrics_to_print):
-            print("---- Metrics ----")
-        else:
-            print("[DOLPHINN] No metrics to print")
-
-        for m in metrics_to_print:
-            name = m.__class__.__name__
-            print(f"{name.ljust(30)} {m.call(self.model.train_state)}")
 
 
 
