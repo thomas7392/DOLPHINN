@@ -12,16 +12,22 @@ Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master th
 #### Create a virtual environment
 Create a virtual anaconda environment with Python 3.10.
 
-`conda create -n "dolphinn-env" python=3.10`
+```
+conda create -n "dolphinn-env" python=3.10
+```
 
 #### Dependencies
 Install tudatpy, an astrodynamics tool used for verification of optimal control policies of spacecraft trajectories found by the DOLPHINN.
 
-`conda install -c tudat-team tudatpy`
+```
+conda install -c tudat-team tudatpy
+```
 
 Install [my fork of deepxde](https://github.com/thomas7392/deepxde), a neural network module speciliased in Physics-Informed Neural Networks. The fork contains some minimal alterations compared to [the original deepxde](https://github.com/lululxvi/deepxde), which are required to run DOLPHINN. My version contains the perturbed equidistant sampler as well as the incorperations of an objective loss term. This is done by using the regularisation functionality, a bit of a loophole indeed.
 
-`pip install git+https://github.com/thomas7392/deepxde.git`
+```
+pip install git+https://github.com/thomas7392/deepxde.git
+```
 
 
 Install Tensorflow 2.8.2 and Tensorflow probability 0.16.0
@@ -34,11 +40,15 @@ pip install tensorflow-probability==0.16.0
 #### Install DOLPHINN
 Now, finally, install the DOLPHINN package. If you purely want to use DOLPHINN as a python module and keep all functionality as it is here, do this:
 
-`pip install git+https://github.com/thomas7392/DOLPHINN.git`
+```
+pip install git+https://github.com/thomas7392/DOLPHINN.git
+```
 
 If you want to make personal alterations, your best option is to fork DOLPHINN and clone your fork locally.
 
-`git clone git@github.com:your_username/DOLPHINN.git`
+```
+git clone git@github.com:your_username/DOLPHINN.git
+```
 
 ## 2. The DOLPHINN code <a name="design"></a>
 
