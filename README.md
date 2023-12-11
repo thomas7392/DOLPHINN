@@ -15,7 +15,7 @@ Create a virtual anaconda environment with Python 3.10.
 `conda create -n "dolphinn-env" python=3.10`
 
 #### Dependencies
-Install tudatpy, an astrodynamics tool used for verification of optimal control polices of spacecraft trajectories found by the DOLPHINN.
+Install tudatpy, an astrodynamics tool used for verification of optimal control policies of spacecraft trajectories found by the DOLPHINN.
 
 `conda install -c tudat-team tudatpy`
 
