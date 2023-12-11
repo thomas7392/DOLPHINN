@@ -55,12 +55,12 @@ git clone git@github.com:your_username/DOLPHINN.git
 A simplified overview of the workflow with `DOLPHINN` is the following diagram
 ![Alt Text](Images/DOLPHINN_overview.png)
 
-An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](tutorials/earth_mars_low_thrust_transfer.ipynb).
+An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](Tutorials/earth_mars_low_thrust_transfer.ipynb).
 
 Short tutorials for specific use cases can be found here
 
-- [Earth-Mars optimal-fuel low-thrust transfer](tutorials/earth_mars_low_thrust_transfer_short.ipynb)
-- [Low Earth orbit propagation](tutorials/earth_circular_orbit_integration_short.ipynb)
+- [Earth-Mars optimal-fuel low-thrust transfer](Tutorials/earth_mars_low_thrust_transfer_short.ipynb)
+- [Low Earth orbit propagation](Tutorials/earth_circular_orbit_integration_short.ipynb)
 
 ## 3. Optimal Control Problem with DOLPHINN <a name="ocp"></a>
 
