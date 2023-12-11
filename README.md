@@ -9,12 +9,12 @@ Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master th
 
 ## 1. Installation <a name="installation"></a>
 
-### Create a virtual environment
+#### Create a virtual environment
 Create a virtual anaconda environment with Python 3.10.
 
 `conda create -n "dolphinn-env" python=3.10`
 
-### Dependencies
+#### Dependencies
 Install tudatpy, an astrodynamics tool used for verification of optimal control polices of spacecraft trajectories found by the DOLPHINN.
 
 `conda install -c tudat-team tudatpy`
@@ -33,7 +33,7 @@ Install Tensorflow probability 0.16.0
 `pip install tensorflow-probability==0.16.0`
 
 
-### Install DOLPHINN
+#### Install DOLPHINN
 Now, finally, install the DOLPHINN package. If you purely want to use DOLPHINN as a python module and keep all functionality as it is here, do this:
 
 `pip install git+https://github.com/thomas7392/DOLPHINN.git`
