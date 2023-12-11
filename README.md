@@ -52,7 +52,7 @@ git clone git@github.com:your_username/DOLPHINN.git
 
 ## 2. The DOLPHINN code <a name="design"></a>
 
-A simplified overview of the workflow with `DOLPHINN` is the following diagram
+`DOLPHINN` is built around its central class `DOLPHINN.pinn.DOLPHINN` that defines and solves the optimal control problem or initial value problem. A simplified overview of the workflow with `DOLPHINN` is the following diagram
 ![Alt Text](Images/DOLPHINN_overview.png)
 
 An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](Tutorials/earth_mars_low_thrust_transfer.ipynb).
@@ -64,7 +64,7 @@ Short tutorials for specific use cases:
 
 ## 3. Optimal Control Problem with DOLPHINN <a name="ocp"></a>
 
-Consider an optimal control problem 
+The DOLPHINN code uses the following theory to solve an optimal control problem with the direct method and a Physics-Informed Neural Network. A formal introduction is found in my thesis (or hopefully the publication). Consider an optimal control problem 
 
 ```math
 \begin{alignat}{2}
