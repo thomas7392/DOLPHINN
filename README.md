@@ -57,7 +57,7 @@ A simplified overview of the workflow with `DOLPHINN` is the following diagram
 
 An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](Tutorials/earth_mars_low_thrust_transfer.ipynb).
 
-Short tutorials for specific use cases can be found here
+Short tutorials for specific use cases:
 
 - [Earth-Mars optimal-fuel low-thrust transfer](Tutorials/earth_mars_low_thrust_transfer_short.ipynb)
 - [Low Earth orbit propagation](Tutorials/earth_circular_orbit_integration_short.ipynb)
