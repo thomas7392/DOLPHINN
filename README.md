@@ -1,10 +1,10 @@
 # DOLPHINN
 
-Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master thesis (TU Delft) project](https://repository.tudelft.nl/islandora/object/uuid%3Abef00e5f-cab2-41e9-af8d-747d1e9284ea?collection=education). This code solves two-boundary-value continuous optimal control problems by using an unsupervised Physics-Informed Neural Network as the latent solution. Below a guide to install DOLPHINN and its dependencies as wel as a simplified explenation of the method that DOLPHINN used to solve optimal control problems with the direct method.
+Direct Optimal controL by PHysics Informed Neural Network (DOLPHINN): [Master thesis (TU Delft) project](https://repository.tudelft.nl/islandora/object/uuid%3Abef00e5f-cab2-41e9-af8d-747d1e9284ea?collection=education). This code solves optimal control problems with the direct method by using an unsupervised Physics-Informed Neural Network (PINN) as the latent solution. Below a guide to install DOLPHINN and its dependencies as wel as a simplified explanation of the method that DOLPHINN used to solve optimal control problems with the direct method.
 
 1. [Installation](#installation)
 2. [DOLPHINN overview](#design)
-2. [Optimal Control Problem with DOLPHINN](#ocp)
+2. [Optimal Control Problem with PINN](#ocp)
 3. [DOLPHINN advantages](#advantages)
 
 ## 1. Installation <a name="installation"></a>
@@ -17,7 +17,7 @@ conda create -n "dolphinn-env" python=3.10
 ```
 
 #### Dependencies
-Install tudatpy, an astrodynamics tool used for verification of optimal control policies of spacecraft trajectories found by the DOLPHINN.
+Install [tudatpy](https://docs.tudat.space/en/latest/), an astrodynamics tool used for verification of optimal control policies of spacecraft trajectories found by the DOLPHINN.
 
 ```
 conda install -c tudat-team tudatpy
@@ -52,20 +52,34 @@ git clone git@github.com:your_username/DOLPHINN.git
 
 ## 2. The DOLPHINN code <a name="design"></a>
 
-A simplified overview of the workflow with `DOLPHINN` is the following diagram
+`DOLPHINN` is built around its central class `DOLPHINN.pinn.DOLPHINN` that defines and solves the optimal control problem or initial value problem. A simplified overview of the workflow with `DOLPHINN` is the following diagram
 ![Alt Text](Images/DOLPHINN_overview.png)
 
-An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](tutorials/earth_mars_low_thrust_transfer.ipynb).
+An extensive tutorial on how the module works and how it can be used to solve user-defined optimal control problems can be found [here](Tutorials/earth_mars_low_thrust_transfer.ipynb).
 
-Short tutorials for specific use cases can be found here
+Short tutorials for specific use cases:
 
-- [Earth-Mars optimal-fuel low-thrust transfer](tutorials/earth_mars_low_thrust_transfer_short.ipynb)
-- [Low Earth orbit propagation](tutorials/earth_circular_orbit_integration_short.ipynb)
+- [Earth-Mars optimal-fuel low-thrust transfer](Tutorials/earth_mars_low_thrust_transfer_short.ipynb)
+- [Low Earth orbit propagation](Tutorials/earth_circular_orbit_integration_short.ipynb)
 
-## 3. Optimal Control Problem with DOLPHINN <a name="ocp"></a>
+## 3. Optimal Control Problem with PINN <a name="ocp"></a>
+
+The DOLPHINN code uses the following theory to solve an optimal control problem with the direct method and a Physics-Informed Neural Network. A formal introduction is found in my thesis (or hopefully the publication). Consider an optimal control problem 
+
+```math
+\begin{alignat}{2}
+\text{Minimize}\quad\,\, &J &&=  \Phi(\mathbf{z}_0, \mathbf{z}_f, t_0, t_f) + \int_{t_0}^{t_f} L(\mathbf{z}(t), \mathbf{u}(t))\, dt \\
+\text{Subject to}\quad\,\, &\dot{\mathbf{z}} &&= f(\mathbf{z}, \mathbf{u}, t) \quad \mathbf{z} \in \mathbb{R}^N, \mathbf{u} \in \mathbb{R}^Q, t \in [t_0, t_f]\\
+&\mathbf{z}(t_0) &&= \mathbf{z}_0\\
+&\mathbf{z}(t_f) &&= \mathbf{z}_f
+\end{alignat}
+```
+
+A neural network $\mathcal{N}$ is designated as the solution. 
 
 ![alt text](https://github.com/thomas7392/DOLPHINN/blob/main/Images/method_overview.png?raw=true)
-That network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
+
+The network maps time $t$ to the state $\mathbf{z}$ and control $\mathbf{u}$.
 
 ```math
 $$\begin{bmatrix} \mathbf{z} \\ \mathbf{u} \end{bmatrix} = \begin{bmatrix} h\big( \mathcal{N}_z (t, p) \big) \\  g\big( \mathcal{N}_u (t, p)\big) \end{bmatrix}$$
